@@ -6,6 +6,22 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+function getApiError(err, fallback) {
+  const status = err?.response?.status
+  const data = err?.response?.data
+  if (data?.message) return status ? `${data.message} (HTTP ${status})` : data.message
+  if (data?.errors) {
+    const flat = Object.values(data.errors).flat().join('\n')
+    return status ? `${flat} (HTTP ${status})` : flat
+  }
+  if (typeof data === 'string' && data.trim()) {
+    const snippet = data.trim().slice(0, 220)
+    return status ? `${snippet} (HTTP ${status})` : snippet
+  }
+  if (status) return `${fallback} (HTTP ${status})`
+  return fallback
+}
+
 export default function Login() {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
@@ -17,7 +33,7 @@ export default function Login() {
 
   const navigate = useNavigate()
   const location = useLocation()
-  const from = useMemo(() => location.state?.from ?? '/', [location.state])
+  const from = useMemo(() => location.state?.from ?? '/projects', [location.state])
 
   const fieldErrors = useMemo(() => {
     const errors = {}
@@ -40,7 +56,7 @@ export default function Login() {
       await login({ email: email.trim(), password, remember })
       navigate(from, { replace: true })
     } catch (err) {
-      setError(err?.response?.data?.message ?? 'Login failed')
+      setError(getApiError(err, 'Login failed'))
     } finally {
       setSubmitting(false)
     }
@@ -109,7 +125,7 @@ export default function Login() {
 
           {error ? <div className="error" role="alert">{error}</div> : null}
 
-          <button type="submit" disabled={submitting || !isFormValid}>
+          <button type="submit" disabled={submitting}>
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>

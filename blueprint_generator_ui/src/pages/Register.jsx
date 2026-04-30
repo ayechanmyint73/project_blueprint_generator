@@ -6,6 +6,22 @@ function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
 
+function getApiError(err, fallback) {
+  const status = err?.response?.status
+  const data = err?.response?.data
+  if (data?.message) return status ? `${data.message} (HTTP ${status})` : data.message
+  if (data?.errors) {
+    const flat = Object.values(data.errors).flat().join('\n')
+    return status ? `${flat} (HTTP ${status})` : flat
+  }
+  if (typeof data === 'string' && data.trim()) {
+    const snippet = data.trim().slice(0, 220)
+    return status ? `${snippet} (HTTP ${status})` : snippet
+  }
+  if (status) return `${fallback} (HTTP ${status})`
+  return fallback
+}
+
 export default function Register() {
   const { register } = useAuth()
   const [name, setName] = useState('')
@@ -56,14 +72,9 @@ export default function Register() {
     setSubmitting(true)
     try {
       await register({ name: name.trim(), email: email.trim(), password, remember })
-      navigate('/', { replace: true })
+      navigate('/projects', { replace: true })
     } catch (err) {
-      const msg =
-        err?.response?.data?.message ??
-        (err?.response?.data?.errors
-          ? Object.values(err.response.data.errors).flat().join('\n')
-          : 'Registration failed')
-      setError(msg)
+      setError(getApiError(err, 'Registration failed'))
     } finally {
       setSubmitting(false)
     }
@@ -171,7 +182,7 @@ export default function Register() {
             </pre>
           ) : null}
 
-          <button type="submit" disabled={submitting || !isFormValid}>
+          <button type="submit" disabled={submitting}>
             {submitting ? 'Creating…' : 'Create account'}
           </button>
         </form>

@@ -19,8 +19,17 @@ export default function NavBar() {
       <nav className="navlinks">
         {token ? (
           <>
-            <NavLink to="/" className={({ isActive }) => (isActive ? 'active' : undefined)}>
-              Dashboard
+            <NavLink
+              to="/projects"
+              className={({ isActive }) => (isActive ? 'active' : undefined)}
+            >
+              Projects
+            </NavLink>
+            <NavLink
+              to="/projects/new"
+              className={({ isActive }) => (isActive ? 'active' : undefined)}
+            >
+              New
             </NavLink>
             <button type="button" className="link" onClick={onLogout}>
               Logout

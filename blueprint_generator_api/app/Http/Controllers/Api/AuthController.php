@@ -38,7 +38,7 @@ class AuthController extends Controller
     {
         if(!Auth::attempt($request->only('email', 'password'))) {
             return response()->json([
-                'message' => 'Invalid email or password'
+                'message' => 'Invalid email or password. Please try again.'
             ], 401);
         }
 

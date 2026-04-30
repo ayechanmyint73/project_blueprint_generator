@@ -1,27 +1,31 @@
 import './App.css'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import NavBar from './components/NavBar'
 import RequireAuth from './auth/RequireAuth'
 import Login from './pages/Login'
 import Register from './pages/Register'
-import Dashboard from './pages/Dashboard'
+import ProjectsList from './pages/ProjectsList'
+import ProjectCreate from './pages/ProjectCreate'
+import ProjectDetail from './pages/ProjectDetail'
+import AppShell from './components/AppShell'
 
 function App() {
   return (
     <>
-      <NavBar />
-      <main className="app-main">
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-          <Route element={<RequireAuth />}>
-            <Route path="/" element={<Dashboard />} />
+        <Route element={<RequireAuth />}>
+          <Route element={<AppShell />}>
+            <Route path="/" element={<Navigate to="/projects" replace />} />
+            <Route path="/projects" element={<ProjectsList />} />
+            <Route path="/projects/new" element={<ProjectCreate />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
           </Route>
+        </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </>
   )
 }
