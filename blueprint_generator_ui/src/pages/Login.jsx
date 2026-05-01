@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { HiOutlineLogin, HiOutlineRefresh } from 'react-icons/hi'
 
 function isValidEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -126,6 +127,7 @@ export default function Login() {
           {error ? <div className="error" role="alert">{error}</div> : null}
 
           <button type="submit" disabled={submitting}>
+            {submitting ? <HiOutlineRefresh className="spin" size={18} /> : <HiOutlineLogin size={18} />}
             {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>

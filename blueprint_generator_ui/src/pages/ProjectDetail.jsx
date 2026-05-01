@@ -10,7 +10,7 @@ function formatDate(value) {
 }
 
 const VIEWS = [
-  { id: 'dna', label: 'Project DNA' },
+  { id: 'project', label: 'Project project' },
   { id: 'architecture', label: 'Architecture' },
   { id: 'database', label: 'Database Schema' },
   { id: 'planning', label: 'Planning' },
@@ -22,7 +22,7 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const view = searchParams.get('view') ?? 'dna'
+  const view = searchParams.get('view') ?? 'project'
   const notesKey = useMemo(() => `bg_project_notes_${id}`, [id])
   const [notesByKey, setNotesByKey] = useState(() => ({}))
   const notes = notesByKey[notesKey] ?? localStorage.getItem(notesKey) ?? ''
@@ -53,39 +53,39 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!VIEWS.some((v) => v.id === view)) {
-      setSearchParams({ view: 'dna' }, { replace: true })
+      setSearchParams({ view: 'project' }, { replace: true })
     }
   }, [view, setSearchParams])
 
   const content = useMemo(() => {
     if (!project) return null
-    if (view === 'dna') {
+    if (view === 'project') {
       return (
         <>
-          <div className="dna-section">
-            <div className="dna-section-title">Problem Statement</div>
-            <div className="dna-section-body">{project.description}</div>
+          <div className="project-section">
+            <div className="project-section-title">Problem Statement</div>
+            <div className="project-section-body">{project.description}</div>
           </div>
 
-          <div className="dna-section">
-            <div className="dna-section-title">Target users</div>
-            <div className="dna-section-body muted">{project.target_users}</div>
+          <div className="project-section">
+            <div className="project-section-title">Target users</div>
+            <div className="project-section-body muted">{project.target_users}</div>
           </div>
 
-          <div className="dna-section">
-            <div className="dna-section-title">Feature list</div>
-            <div className="dna-section-body muted">
+          <div className="project-section">
+            <div className="project-section-title">Feature list</div>
+            <div className="project-section-body muted">
               Hook this to your AI blueprint endpoint and render sections here.
             </div>
-            <div className="dna-feature-grid">
+            <div className="project-feature-grid">
               {[
                 'Interactive dashboard — centralized workspace',
                 'AI-generated requirements — functional & non-functional',
                 'Export — PDF/Docx/Markdown',
                 'Versioning — compare blueprint iterations',
               ].map((text) => (
-                <div key={text} className="dna-feature">
-                  <div className="dna-bullet" />
+                <div key={text} className="project-feature">
+                  <div className="project-bullet" />
                   <div>{text}</div>
                 </div>
               ))}
@@ -97,16 +97,16 @@ export default function ProjectDetail() {
     if (view === 'architecture') {
       return (
         <>
-          <div className="dna-section">
-            <div className="dna-section-title">Architecture</div>
-            <div className="dna-section-body muted">
+          <div className="project-section">
+            <div className="project-section-title">Architecture</div>
+            <div className="project-section-body muted">
               Describe frontend, backend, AI integration, and external services.
             </div>
           </div>
-          <div className="dna-section">
-            <div className="dna-section-title">Suggested components</div>
-            <div className="dna-section-body">
-              <ul className="dna-list">
+          <div className="project-section">
+            <div className="project-section-title">Suggested components</div>
+            <div className="project-section-body">
+              <ul className="project-list">
                 <li>React UI (Projects + Blueprint workspace)</li>
                 <li>Laravel API (Sanctum + Projects + AI endpoints)</li>
                 <li>AI provider integration</li>
@@ -119,16 +119,16 @@ export default function ProjectDetail() {
     if (view === 'database') {
       return (
         <>
-          <div className="dna-section">
-            <div className="dna-section-title">Database schema</div>
-            <div className="dna-section-body muted">
+          <div className="project-section">
+            <div className="project-section-title">Database schema</div>
+            <div className="project-section-body muted">
               Document tables for blueprint outputs (requirements, sections, versions).
             </div>
           </div>
-          <div className="dna-section">
-            <div className="dna-section-title">Current tables</div>
-            <div className="dna-section-body">
-              <ul className="dna-list">
+          <div className="project-section">
+            <div className="project-section-title">Current tables</div>
+            <div className="project-section-body">
+              <ul className="project-list">
                 <li>`users` (role)</li>
                 <li>`projects` (project_name, description, target_users, status)</li>
               </ul>
@@ -140,21 +140,21 @@ export default function ProjectDetail() {
     if (view === 'planning') {
       return (
         <>
-          <div className="dna-section">
-            <div className="dna-section-title">Planning</div>
-            <div className="dna-section-body muted">Add milestones, sprints, and delivery plan.</div>
-            <ul className="dna-list">
+          <div className="project-section">
+            <div className="project-section-title">Planning</div>
+            <div className="project-section-body muted">Add milestones, sprints, and delivery plan.</div>
+            <ul className="project-list">
               <li>Week 1: Requirements + scope</li>
               <li>Week 2: Blueprint generation MVP</li>
               <li>Week 3: Export + polish</li>
             </ul>
           </div>
 
-          <div className="dna-section">
-            <div className="dna-section-title">Notes</div>
-            <div className="dna-section-body muted">Saved locally in this browser (per project).</div>
+          <div className="project-section">
+            <div className="project-section-title">Notes</div>
+            <div className="project-section-body muted">Saved locally in this browser (per project).</div>
             <textarea
-              className="dna-notes"
+              className="project-notes"
               rows={10}
               placeholder="Write notes, ideas, and decisions…"
               value={notes}
@@ -173,21 +173,21 @@ export default function ProjectDetail() {
   }, [project, view, notes, notesKey])
 
   return (
-    <div className="page dna-page">
-      <div className="dna-head">
-        <div className="dna-head-left">
-          <Link className="dna-back" to="/projects">
+    <div className="page project-page">
+      <div className="project-head">
+        <div className="project-head-left">
+          <Link className="project-back" to="/projects">
             ←
           </Link>
-          <div className="dna-title-wrap">
-            <div className="dna-project-title">{project?.project_name ?? 'Project'}</div>
-            <div className="muted dna-project-sub">
+          <div className="project-title-wrap">
+            <div className="project-project-title">{project?.project_name ?? 'Project'}</div>
+            <div className="muted project-project-sub">
               {project ? `Created ${formatDate(project.created_at)}` : ''}
             </div>
           </div>
         </div>
 
-        <div className="dna-actions">
+        <div className="project-actions">
           <button type="button" className="secondary-btn" disabled>
             Regenerate AI
           </button>
@@ -197,12 +197,12 @@ export default function ProjectDetail() {
         </div>
       </div>
 
-      <div className="dna-tabs">
+      <div className="project-tabs">
         {VIEWS.map((v) => (
           <button
             key={v.id}
             type="button"
-            className={`dna-tab ${view === v.id ? 'active' : ''}`}
+            className={`project-tab ${view === v.id ? 'active' : ''}`}
             onClick={() => setSearchParams({ view: v.id })}
           >
             {v.label}
@@ -224,7 +224,7 @@ export default function ProjectDetail() {
           {error}
         </div>
       ) : (
-        <div className="dna-content">{content}</div>
+        <div className="project-content">{content}</div>
       )}
     </div>
   )

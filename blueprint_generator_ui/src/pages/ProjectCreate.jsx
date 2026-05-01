@@ -6,8 +6,6 @@ export default function ProjectCreate() {
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
   const [targetUsers, setTargetUsers] = useState('')
-  const [industry, setIndustry] = useState('')
-  const [fileName, setFileName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [touched, setTouched] = useState({
@@ -60,13 +58,12 @@ export default function ProjectCreate() {
       <div className="form-head">
         <h1 className="dash-title">New Project</h1>
         <p className="dash-subtitle muted">
-          Describe your project idea and let AI generate a complete Project DNA.
+          Describe your project idea and let AI generate a complete Project project.
         </p>
       </div>
 
       <div className="form-card">
         <div className="form-card-title">
-          <span className="form-icon" aria-hidden="true" />
           Project Details
         </div>
 
@@ -108,8 +105,7 @@ export default function ProjectCreate() {
             ) : null}
           </div>
 
-          <div className="form-row">
-            <div>
+          <div>
               <label className="label" htmlFor="project-target-users">
                 Target users
               </label>
@@ -127,41 +123,6 @@ export default function ProjectCreate() {
               ) : null}
             </div>
 
-            <div>
-              <label className="label" htmlFor="project-industry">
-                Industry
-              </label>
-              <select
-                id="project-industry"
-                className="control"
-                value={industry}
-                onChange={(e) => setIndustry(e.target.value)}
-              >
-                <option value="">Select industry</option>
-                <option value="education">Education</option>
-                <option value="healthcare">Healthcare</option>
-                <option value="ecommerce">E-commerce</option>
-                <option value="finance">Finance</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <div className="label">Upload document (optional)</div>
-            <label className="upload" htmlFor="project-upload">
-              <div className="upload-title">Upload a document</div>
-              <div className="muted upload-sub">PDF, DOCX, TXT, or Markdown — up to 10MB</div>
-              <div className="muted upload-file">{fileName ? fileName : 'Choose file… (not sent yet)'}</div>
-            </label>
-            <input
-              id="project-upload"
-              type="file"
-              className="sr-only"
-              onChange={(e) => setFileName(e.target.files?.[0]?.name ?? '')}
-            />
-          </div>
-
           {error ? (
             <pre className="error" role="alert" style={{ whiteSpace: 'pre-wrap' }}>
               {error}
@@ -169,9 +130,6 @@ export default function ProjectCreate() {
           ) : null}
 
           <div className="form-actions">
-            <button type="button" className="secondary-btn" onClick={() => navigate('/projects')}>
-              Cancel
-            </button>
             <button type="submit" disabled={submitting || !isValid}>
               {submitting ? 'Creating…' : 'Create project'}
             </button>

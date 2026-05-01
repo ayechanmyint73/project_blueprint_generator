@@ -25,13 +25,13 @@
   width: 44px;
   height: 44px;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--glow) 25%, var(--border));
-  background: color-mix(in srgb, var(--glow) 10%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border));
+  background: color-mix(in srgb, var(--brand) 8%, var(--card));
   display: grid;
   place-items: center;
   box-shadow:
-    rgba(6, 182, 212, 0.14) 0 12px 20px -16px,
-    rgba(6, 182, 212, 0.22) 0 0 0 1px inset;
+    rgba(136, 40, 82, 0.12) 0 12px 20px -16px,
+    rgba(136, 40, 82, 0.18) 0 0 0 1px inset;
 }
 
 .sidebar-logo {
@@ -41,10 +41,9 @@
 }
 
 .sidebar-title {
-  font-weight: 900;
-  letter-spacing: -0.4px;
+  font-weight: bold;
+  font-size:14px;
   color: var(--text-h);
-  line-height: 1.1;
 }
 
 .sidebar-subtitle {
@@ -56,10 +55,10 @@
 }
 
 .sidebar-section {
-  margin-top: 18px;
-  padding: 0 12px;
-  font-size: 11px;
-  letter-spacing: 1.2px;
+  margin-top: 10px;
+  padding: 0 10px;
+  font-size: 10px;
+  text-align: left;
   text-transform: uppercase;
   color: color-mix(in srgb, var(--slate) 55%, transparent);
 }
@@ -71,28 +70,33 @@
 
 .sidebar-nav {
   display: grid;
-  gap: 6px;
+  /* gap: 5px; */
   padding: 8px 6px;
 }
 
 .side-link {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  border-radius: 14px;
+  gap: 12px;
+  font-size:13px;
+  padding: 10px;
+  border-radius: 10px;
   text-decoration: none;
   color: color-mix(in srgb, var(--slate) 85%, transparent);
   font-weight: 700;
-  border: 1px solid transparent;
+  border: none;
+  background: transparent;
+  transition: color 120ms ease;
 }
 
 .side-link:hover {
-  background: var(--social-bg);
+  color: var(--text-h);
+  background: var(--accent-bg);
+  border: none;
 }
 
 .side-link.active {
-  border-color: color-mix(in srgb, var(--glow) 55%, var(--border));
-  background: color-mix(in srgb, var(--glow) 10%, var(--card));
+  /* background: var(--accent-bg); */
   color: var(--text-h);
 }
 
@@ -106,23 +110,25 @@
 }
 
 .sidebar-footer {
+  border: none;
+  border-top: 1px solid var(--border);
   margin-top: auto;
-  padding: 12px 8px 6px;
+  padding-top: 12px;
+  padding-left: 10px;
+  padding-right: 10px;
   display: grid;
-  gap: 10px;
+  /* gap: 5px; */
 }
 
 .sidebar-user {
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--card);
-  box-shadow: var(--shadow);
+  padding: 5px 0;
+  border: none;
+  background: transparent;
 }
 
 .sidebar-user-name {
   font-weight: 900;
-  letter-spacing: -0.2px;
+  font-size:13px;
   color: var(--text-h);
 }
 
@@ -135,6 +141,17 @@
 
 .sidebar-logout {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  margin-top: 4px;
+}
+
+.sidebar-logout:hover {
+  border-color: var(--border) !important;
+  background: var(--accent-bg) !important;
 }
 
 .shell-content {
@@ -146,7 +163,9 @@
     linear-gradient(to right, rgba(30, 41, 59, 0.06) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(30, 41, 59, 0.06) 1px, transparent 1px),
     radial-gradient(900px 320px at 55% 0%, rgba(6, 182, 212, 0.14), transparent 60%),
+    radial-gradient(900px 320px at 100% 90%, rgba(6, 182, 212, 0.12), transparent 60%),
     radial-gradient(900px 320px at 0% 10%, rgba(136, 40, 82, 0.12), transparent 60%),
+    radial-gradient(900px 320px at 90% 100%, rgba(136, 40, 82, 0.10), transparent 60%),
     var(--bg);
   background-size: 48px 48px, 48px 48px, auto, auto, auto;
 }
@@ -188,16 +207,17 @@
   justify-content: center;
   gap: 8px;
   padding: 10px 12px;
-  border-radius: 12px;
+  border-radius: 10px;
   border: 1px solid transparent;
   background: var(--brand);
   color: #ffffff;
   text-decoration: none;
   font-weight: 600;
+  font-size: 13px;
   white-space: nowrap;
   box-shadow:
     rgba(136, 40, 82, 0.25) 0 8px 16px -10px,
-    rgba(6, 182, 212, 0.22) 0 0 0 1px inset;
+    rgba(136, 40, 82, 0.18) 0 0 0 1px inset;
 }
 
 .btn-link:hover {
@@ -290,7 +310,7 @@
   border: 1px solid var(--border);
   background: var(--card);
   color: var(--text);
-  min-width: 220px;
+  min-width: 820px;
 }
 
 select.control {
@@ -317,7 +337,7 @@ select.control {
 
 .dash-title {
   margin: 10px 0 6px;
-  font-size: 36px;
+  font-size: 25px;
   letter-spacing: -1.2px;
   line-height: 1.05;
   font-weight: 900;
@@ -343,6 +363,8 @@ select.control {
 
 .dash-controls {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
   margin-top: 18px;
@@ -370,24 +392,24 @@ select.control {
   }
 }
 
-.dna-card {
-  border-radius: 18px;
-  border: 1px solid color-mix(in srgb, var(--glow) 18%, var(--border));
-  background: color-mix(in srgb, var(--card) 86%, var(--bg));
+.project-card {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card);
   box-shadow: var(--shadow);
   padding: 18px 18px 16px;
   display: grid;
   gap: 10px;
 }
 
-.dna-card:hover {
-  border-color: color-mix(in srgb, var(--glow) 40%, var(--border));
+.project-card:hover {
+  border-color: color-mix(in srgb, var(--brand) 24%, var(--border));
   box-shadow:
-    rgba(6, 182, 212, 0.18) 0 0 0 1px inset,
+    rgba(136, 40, 82, 0.12) 0 0 0 1px inset,
     var(--shadow);
 }
 
-.dna-card-top {
+.project-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -398,9 +420,9 @@ select.control {
   align-items: center;
   gap: 6px;
   padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--glow) 28%, var(--border));
-  background: color-mix(in srgb, var(--glow) 10%, var(--card));
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--social-bg);
   color: color-mix(in srgb, var(--slate) 90%, transparent);
   font-size: 13px;
   font-weight: 800;
@@ -408,56 +430,71 @@ select.control {
   white-space: nowrap;
 }
 
-.pill-complete,
-.pill-success,
-.pill-completed,
-.pill-active {
-  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
-  background: color-mix(in srgb, var(--success) 12%, var(--card));
+.pill-draft {
+  border-color: color-mix(in srgb, var(--neutral) 40%, var(--border));
+  background: color-mix(in srgb, var(--neutral) 14%, var(--card));
 }
 
-.dna-card-title {
-  font-size: 18px;
-  font-weight: 900;
-  letter-spacing: -0.4px;
+.pill-active,
+.pill-in-progress,
+.pill-progress {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: color-mix(in srgb, var(--warning) 14%, var(--card));
+}
+
+.pill-complete,
+.pill-success,
+.pill-completed {
+  border-color: color-mix(in srgb, var(--success) 55%, var(--border));
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
+}
+
+.project-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  padding-top:10px;
+  text-align: left;
   color: var(--text-h);
   line-height: 1.2;
 }
 
-.dna-card-desc {
+.project-card-desc {
   font-size: 14px;
   line-height: 1.45;
+  text-align: left;
 }
 
-.dna-card-meta {
+.project-card-meta {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   align-items: center;
   flex-wrap: wrap;
-  margin-top: 2px;
+  margin-top: 10px;
 }
 
-.dna-card-actions {
+.project-card-actions {
   display: flex;
   justify-content: flex-end;
 }
 
-.dna-link {
-  font-weight: 900;
-  color: var(--glow);
+.project-link {
+  font-weight: 600;
+  color: var(--brand);
+  font-size: 14px;
   text-decoration: none;
 }
 
-.dna-link:hover {
+.project-link:hover {
+  color: var(--glow);
   text-decoration: underline;
 }
 
-.dna-page {
+.project-page {
   max-width: 980px;
 }
 
-.dna-head {
+.project-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -466,13 +503,13 @@ select.control {
   margin-top: 8px;
 }
 
-.dna-head-left {
+.project-head-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.dna-back {
+.project-back {
   width: 42px;
   height: 42px;
   display: grid;
@@ -486,7 +523,7 @@ select.control {
   font-weight: 900;
 }
 
-.dna-project-title {
+.project-project-title {
   font-size: 22px;
   font-weight: 900;
   letter-spacing: -0.6px;
@@ -494,17 +531,17 @@ select.control {
   color: var(--text-h);
 }
 
-.dna-project-sub {
+.project-project-sub {
   font-size: 13px;
 }
 
-.dna-actions {
+.project-actions {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
 }
 
-.dna-tabs {
+.project-tabs {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
@@ -512,7 +549,7 @@ select.control {
   align-items: center;
 }
 
-.dna-tab {
+.project-tab {
   padding: 10px 14px;
   border-radius: 14px;
   border: 1px solid var(--border);
@@ -523,18 +560,18 @@ select.control {
   font-weight: 800;
 }
 
-.dna-tab.active {
+.project-tab.active {
   border-color: color-mix(in srgb, var(--glow) 55%, var(--border));
   background: color-mix(in srgb, var(--glow) 12%, var(--card));
 }
 
-.dna-content {
+.project-content {
   margin-top: 18px;
   display: grid;
   gap: 16px;
 }
 
-.dna-section {
+.project-section {
   border: 1px solid var(--border);
   border-radius: 18px;
   background: color-mix(in srgb, var(--card) 88%, var(--bg));
@@ -542,7 +579,7 @@ select.control {
   padding: 18px;
 }
 
-.dna-section-title {
+.project-section-title {
   font-weight: 900;
   letter-spacing: -0.2px;
   color: var(--text-h);
@@ -551,24 +588,24 @@ select.control {
   gap: 10px;
 }
 
-.dna-section-body {
+.project-section-body {
   margin-top: 10px;
   line-height: 1.6;
 }
 
-.dna-list {
+.project-list {
   margin: 10px 0 0;
   padding-left: 18px;
 }
 
-.dna-feature-grid {
+.project-feature-grid {
   margin-top: 14px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
 }
 
-.dna-feature {
+.project-feature {
   border: 1px solid var(--border);
   border-radius: 16px;
   background: color-mix(in srgb, var(--card) 82%, var(--bg));
@@ -578,7 +615,7 @@ select.control {
   align-items: flex-start;
 }
 
-.dna-bullet {
+.project-bullet {
   width: 10px;
   height: 10px;
   border-radius: 999px;
@@ -588,7 +625,7 @@ select.control {
   flex: 0 0 auto;
 }
 
-.dna-notes {
+.project-notes {
   width: 100%;
   margin-top: 12px;
   min-height: 220px;
@@ -605,8 +642,8 @@ select.control {
 
 .form-card {
   border-radius: 22px;
-  border: 1px solid color-mix(in srgb, var(--glow) 18%, var(--border));
-  background: color-mix(in srgb, var(--card) 86%, var(--bg));
+  border: 1px solid var(--border);
+  background: var(--card);
   box-shadow: var(--shadow);
   padding: 20px;
 }
@@ -625,9 +662,9 @@ select.control {
   width: 34px;
   height: 34px;
   border-radius: 14px;
-  background: color-mix(in srgb, var(--glow) 12%, var(--card));
-  border: 1px solid color-mix(in srgb, var(--glow) 28%, var(--border));
-  box-shadow: rgba(6, 182, 212, 0.22) 0 0 0 1px inset;
+  background: color-mix(in srgb, var(--brand) 8%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border));
+  box-shadow: rgba(136, 40, 82, 0.18) 0 0 0 1px inset;
   display: inline-block;
 }
 
@@ -641,7 +678,7 @@ select.control {
   .form-row {
     grid-template-columns: 1fr;
   }
-  .dna-feature-grid {
+  .project-feature-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -651,13 +688,13 @@ select.control {
   gap: 6px;
   padding: 16px;
   border-radius: 18px;
-  border: 1px dashed color-mix(in srgb, var(--glow) 26%, var(--border));
-  background: color-mix(in srgb, var(--bg) 60%, var(--card));
+  border: 1px dashed color-mix(in srgb, var(--brand) 22%, var(--border));
+  background: color-mix(in srgb, var(--bg) 75%, var(--card));
   cursor: pointer;
 }
 
 .upload:hover {
-  border-color: color-mix(in srgb, var(--glow) 45%, var(--border));
+  border-color: color-mix(in srgb, var(--brand) 38%, var(--border));
 }
 
 .upload-title {
@@ -686,7 +723,7 @@ select.control {
   border-radius: 999px;
   font-size: 12px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--glow) 8%, var(--card));
+  background: var(--social-bg);
   color: color-mix(in srgb, var(--slate) 85%, transparent);
   white-space: nowrap;
 }
@@ -775,14 +812,22 @@ select.control {
 }
 
 .badge-draft {
-  border-color: color-mix(in srgb, var(--glow) 40%, var(--border));
+  border-color: color-mix(in srgb, var(--neutral) 40%, var(--border));
+  background: color-mix(in srgb, var(--neutral) 14%, var(--card));
 }
 
 .badge-active,
+.badge-in-progress,
+.badge-progress {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
+  background: color-mix(in srgb, var(--warning) 14%, var(--card));
+}
+
 .badge-complete,
+.badge-completed,
 .badge-success {
   border-color: color-mix(in srgb, var(--success) 55%, var(--border));
-  background: color-mix(in srgb, var(--success) 12%, var(--card));
+  background: color-mix(in srgb, var(--success) 14%, var(--card));
 }
 
 .form {
@@ -794,13 +839,17 @@ select.control {
   display: block;
   font-size: 13px;
   font-weight: 650;
+  text-align: left;
+  padding-top: 10px;
   margin-bottom: 6px;
   color: color-mix(in srgb, var(--slate) 85%, transparent);
 }
 
 .form-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
   gap: 10px;
   flex-wrap: wrap;
 }
@@ -881,9 +930,22 @@ button {
   color: #ffffff;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: center;
   box-shadow:
     rgba(136, 40, 82, 0.25) 0 8px 16px -10px,
-    rgba(6, 182, 212, 0.22) 0 0 0 1px inset;
+    rgba(136, 40, 82, 0.18) 0 0 0 1px inset;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 button:hover {

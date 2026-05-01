@@ -1,5 +1,14 @@
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { 
+  HiOutlineHome, 
+  HiOutlinePlus, 
+  HiOutlineDocumentText, 
+  HiOutlineCode, 
+  HiOutlineDatabase, 
+  HiOutlineCalendar,
+  HiOutlineLogout
+} from 'react-icons/hi'
 
 export default function AppShell() {
   const { user, logout } = useAuth()
@@ -30,13 +39,13 @@ export default function AppShell() {
         <div className="sidebar-section">Menu</div>
         <nav className="sidebar-nav">
           <NavLink to="/projects" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
-            Dashboard
+            <HiOutlineHome size={19} /> Dashboard
           </NavLink>
           <NavLink
             to="/projects/new"
             className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}
           >
-            New Project
+            <HiOutlinePlus size={19} /> New Project
           </NavLink>
         </nav>
 
@@ -45,13 +54,13 @@ export default function AppShell() {
         </div>
         <nav className="sidebar-nav">
           <NavLink
-            to={onProjectDetail ? `/projects/${projectId}?view=dna` : '#'}
+            to={onProjectDetail ? `/projects/${projectId}?view=project` : '#'}
             className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
             onClick={(e) => {
               if (!onProjectDetail) e.preventDefault()
             }}
           >
-            Project DNA
+            <HiOutlineDocumentText size={19} /> Project Blueprint
           </NavLink>
           <NavLink
             to={onProjectDetail ? `/projects/${projectId}?view=architecture` : '#'}
@@ -60,7 +69,7 @@ export default function AppShell() {
               if (!onProjectDetail) e.preventDefault()
             }}
           >
-            Architecture
+            <HiOutlineCode size={19} /> Architecture
           </NavLink>
           <NavLink
             to={onProjectDetail ? `/projects/${projectId}?view=database` : '#'}
@@ -69,7 +78,7 @@ export default function AppShell() {
               if (!onProjectDetail) e.preventDefault()
             }}
           >
-            Database Schema
+            <HiOutlineDatabase size={19} /> Database Schema
           </NavLink>
           <NavLink
             to={onProjectDetail ? `/projects/${projectId}?view=planning` : '#'}
@@ -78,17 +87,17 @@ export default function AppShell() {
               if (!onProjectDetail) e.preventDefault()
             }}
           >
-            Planning
+            <HiOutlineCalendar size={19} /> Planning
           </NavLink>
         </nav>
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="sidebar-user-name">{user?.name ?? 'User'}</div>
+            {/* <div className="sidebar-user-name">{user?.name ?? 'User'}</div> */}
             <div className="sidebar-user-email muted">{user?.email}</div>
           </div>
           <button type="button" className="secondary-btn sidebar-logout" onClick={onLogout}>
-            Sign out
+            <HiOutlineLogout size={19} /> Sign out
           </button>
         </div>
       </aside>
