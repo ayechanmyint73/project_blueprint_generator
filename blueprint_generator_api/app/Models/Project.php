@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Blueprint;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -18,5 +19,10 @@ class Project extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function blueprint()
+    {
+        return $this->hasOne(Blueprint::class);
     }
 }

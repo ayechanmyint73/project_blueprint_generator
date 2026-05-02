@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'openrouter' => [
+        'api_key' => env('OPENROUTER_API_KEY'),
+        'url' => env('OPENROUTER_URL', 'https://openrouter.ai/api/v1/chat/completions'),
+        'model' => env('AI_MODEL', 'anthropic/claude-3-haiku'),
+    ],
+
 ];

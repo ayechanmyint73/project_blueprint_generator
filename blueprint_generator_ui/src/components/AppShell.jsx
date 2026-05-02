@@ -63,24 +63,6 @@ export default function AppShell() {
             <HiOutlineDocumentText size={19} /> Project Blueprint
           </NavLink>
           <NavLink
-            to={onProjectDetail ? `/projects/${projectId}?view=architecture` : '#'}
-            className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
-            onClick={(e) => {
-              if (!onProjectDetail) e.preventDefault()
-            }}
-          >
-            <HiOutlineCode size={19} /> Architecture
-          </NavLink>
-          <NavLink
-            to={onProjectDetail ? `/projects/${projectId}?view=database` : '#'}
-            className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
-            onClick={(e) => {
-              if (!onProjectDetail) e.preventDefault()
-            }}
-          >
-            <HiOutlineDatabase size={19} /> Database Schema
-          </NavLink>
-          <NavLink
             to={onProjectDetail ? `/projects/${projectId}?view=planning` : '#'}
             className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
             onClick={(e) => {

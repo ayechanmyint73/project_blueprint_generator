@@ -13,6 +13,12 @@ return new class extends Migration
     {
         Schema::create('blueprints', function (Blueprint $table) {
             $table->id();
+
+            $table->foreignId('project_id')->constrained()->onDelete('cascade');
+
+            $table->longText('content');
+            $table->string('model')->nullable();
+            $table->integer('token_used')->nullable();
             $table->timestamps();
         });
     }

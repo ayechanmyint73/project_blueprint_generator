@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BlueprintController;
+use App\Http\Controllers\Api\PdfController;
 use App\Http\Controllers\Api\ProjectController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -32,4 +34,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/projects/{id}', [ProjectController::class, 'update']);
 
     Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
+
+    Route::post('/projects/{id}/generate', [BlueprintController::class, 'generate']);
+
+    Route::get('/projects/{id}/blueprint', [BlueprintController::class, 'show']);
+
+    Route::get('/projects/{id}/export-pdf', [PdfController::class, 'export']);
 });

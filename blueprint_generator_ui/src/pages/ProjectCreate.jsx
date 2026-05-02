@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createProject } from '../api/projects'
+import { generateBlueprint } from '../api/blueprints'
 
 export default function ProjectCreate() {
   const [projectName, setProjectName] = useState('')
@@ -40,7 +41,17 @@ export default function ProjectCreate() {
         target_users: targetUsers.trim(),
       })
       const id = data?.project?.id
-      navigate(id ? `/projects/${id}` : '/projects', { replace: true })
+      if (id) {
+        try {
+          await generateBlueprint(id)
+        } catch (err) {
+          // If generation fails, still navigate to the detail page so the user can retry there.
+          console.error('Failed to generate blueprint after create:', err)
+        }
+        navigate(`/projects/${id}?view=overview`, { replace: true })
+      } else {
+        navigate('/projects', { replace: true })
+      }
     } catch (err) {
       const msg =
         err?.response?.data?.message ??
@@ -131,7 +142,7 @@ export default function ProjectCreate() {
 
           <div className="form-actions">
             <button type="submit" disabled={submitting || !isValid}>
-              {submitting ? 'Creating…' : 'Create project'}
+              {submitting ? 'Generating…' : 'Generate blueprint'}
             </button>
           </div>
         </form>
