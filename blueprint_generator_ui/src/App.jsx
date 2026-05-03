@@ -7,6 +7,7 @@ import ProjectsList from './pages/ProjectsList'
 import ProjectCreate from './pages/ProjectCreate'
 import ProjectDetail from './pages/ProjectDetail'
 import ProjectPlanning from './pages/ProjectPlanning'
+import Settings from './pages/Settings'
 import AppShell from './components/AppShell'
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
             <Route path="/projects/new" element={<ProjectCreate />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/projects/:id/planning" element={<ProjectPlanning />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
         </Route>
 

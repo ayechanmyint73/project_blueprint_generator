@@ -7,6 +7,7 @@ import {
   HiOutlineCode, 
   HiOutlineDatabase, 
   HiOutlineCalendar,
+  HiOutlineCog,
   HiOutlineLogout
 } from 'react-icons/hi'
 
@@ -72,6 +73,10 @@ export default function AppShell() {
             <HiOutlineCalendar size={19} /> Planning
           </NavLink>
         </nav>
+
+          <NavLink to="/settings" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
+            <HiOutlineCog size={19} /> Settings
+          </NavLink>
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
