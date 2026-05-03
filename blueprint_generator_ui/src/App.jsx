@@ -6,6 +6,7 @@ import Register from './pages/Register'
 import ProjectsList from './pages/ProjectsList'
 import ProjectCreate from './pages/ProjectCreate'
 import ProjectDetail from './pages/ProjectDetail'
+import ProjectPlanning from './pages/ProjectPlanning'
 import AppShell from './components/AppShell'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
             <Route path="/projects" element={<ProjectsList />} />
             <Route path="/projects/new" element={<ProjectCreate />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
+            <Route path="/projects/:id/planning" element={<ProjectPlanning />} />
           </Route>
         </Route>
 

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BlueprintController;
+use App\Http\Controllers\Api\DevelopmentPlanController;
 use App\Http\Controllers\Api\PdfController;
 use App\Http\Controllers\Api\ProjectController;
 use Illuminate\Http\Request;
@@ -40,4 +41,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{id}/blueprint', [BlueprintController::class, 'show']);
 
     Route::get('/projects/{id}/export-pdf', [PdfController::class, 'export']);
+
+    Route::post('/projects/{id}/generate-plan', [DevelopmentPlanController::class, 'generate']);
+
+    Route::get('/projects/{id}/plan', [DevelopmentPlanController::class, 'show']);
+
+    Route::put('/projects/{id}/plan', [DevelopmentPlanController::class, 'upsert']);
+
+    Route::put('/projects/{id}/plan/task', [DevelopmentPlanController::class, 'updateTask']);
+
+    Route::get('/projects/{id}/plan-progress', [DevelopmentPlanController::class, 'progress']);
 });

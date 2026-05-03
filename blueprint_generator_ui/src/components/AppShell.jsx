@@ -63,7 +63,7 @@ export default function AppShell() {
             <HiOutlineDocumentText size={19} /> Project Blueprint
           </NavLink>
           <NavLink
-            to={onProjectDetail ? `/projects/${projectId}?view=planning` : '#'}
+            to={onProjectDetail ? `/projects/${projectId}/planning` : '#'}
             className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
             onClick={(e) => {
               if (!onProjectDetail) e.preventDefault()

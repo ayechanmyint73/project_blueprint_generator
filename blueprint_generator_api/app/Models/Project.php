@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Blueprint;
+use App\Models\DevelopmentPlan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,5 +25,10 @@ class Project extends Model
     public function blueprint()
     {
         return $this->hasOne(Blueprint::class);
+    }
+
+    public function developmentPlan()
+    {
+        return $this->hasOne(DevelopmentPlan::class);
     }
 }
