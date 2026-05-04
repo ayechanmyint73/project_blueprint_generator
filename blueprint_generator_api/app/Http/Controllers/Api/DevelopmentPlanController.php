@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiUsage;
 use App\Models\DevelopmentPlan;
 use App\Models\DevelopmentPlanPhase;
 use App\Models\DevelopmentPlanTask;
 use App\Models\Project;
+use App\Services\AIService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 
 class DevelopmentPlanController extends Controller
 {
@@ -109,109 +109,56 @@ class DevelopmentPlanController extends Controller
         $plan->recalculateProgress();
     }
 
-    public function generate($projectId)
+    public function generate(Request $request, $projectId, AIService $ai)
     {
         $requestId = (string) (request()->header('X-Request-Id') ?: Str::uuid());
-        $userId = auth()->id();
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated',
+                'request_id' => $requestId,
+            ], 401);
+        }
+        $userId = (int) $user->id;
+
+        if (AiUsage::countForToday($userId) >= 5) {
+            return response()->json([
+                'message' => 'Daily AI limit reached',
+                'request_id' => $requestId,
+            ], 403);
+        }
 
         $project = Project::where('user_id', $userId)->findOrFail($projectId);
 
         $prompt = $this->buildPrompt($project);
 
-        $apiKey = (string) config('services.openrouter.api_key');
-        $url = (string) config('services.openrouter.url');
-        $model = (string) config('services.openrouter.model');
-
-        if ($apiKey === '' || $url === '' || $model === '') {
-            Log::error('Development plan generate misconfigured', [
-                'request_id' => $requestId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'has_api_key' => $apiKey !== '',
-                'has_url' => $url !== '',
-                'has_model' => $model !== '',
-            ]);
-
-            return response()->json([
-                'message' => 'AI provider is not configured (missing OPENROUTER_API_KEY / OPENROUTER_URL / AI_MODEL)',
-                'request_id' => $requestId,
-            ], 500);
-        }
-
         Log::info('Development plan generate started', [
             'request_id' => $requestId,
             'user_id' => $userId,
             'project_id' => $projectId,
-            'model' => $model,
         ]);
 
-        try {
-            $response = Http::timeout(90)
-                ->retry(1, 250)
-                ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                    'HTTP-Referer' => (string) config('app.url'),
-                    'X-Title' => (string) config('app.name'),
-                ])
-                ->post($url, [
-                    'model' => $model,
-                    'messages' => [
-                        [
-                            'role' => 'user',
-                            'content' => $prompt,
-                        ],
-                    ],
-                ]);
-        } catch (Throwable $e) {
-            Log::error('Development plan generate provider call threw', [
-                'request_id' => $requestId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'model' => $model,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'message' => 'Failed to generate development plan (provider request error)',
-                'request_id' => $requestId,
-            ], 500);
-        }
-
-        if(!$response->successful()) {
-            Log::warning('Development plan generate provider returned error', [
-                'request_id' => $requestId,
-                'user_id' => $userId,
-                'project_id' => $projectId,
-                'model' => $model,
-                'provider_status' => $response->status(),
-                'provider_body' => Str::limit((string) $response->body(), 4000),
-            ]);
-
-            return response()->json([
-                'message' => 'Failed to generate development plan',
-                'provider_status' => $response->status(),
-                'request_id' => $requestId,
-            ], 500);
-        }
-
-        $content = data_get($response->json(), 'choices.0.message.content');
+        $content = $ai->generate($prompt);
         if (!is_string($content) || trim($content) === '') {
-            Log::error('Development plan generate provider response missing content', [
+            $status = $ai->getLastHttpStatus();
+            $err = $ai->getLastError() ?? 'AI generation failed';
+
+            Log::warning('Development plan generate failed', [
                 'request_id' => $requestId,
                 'user_id' => $userId,
                 'project_id' => $projectId,
-                'model' => $model,
-                'provider_status' => $response->status(),
-                'provider_body' => Str::limit((string) $response->body(), 4000),
+                'provider_status' => $status,
+                'error' => $err,
             ]);
 
             return response()->json([
-                'message' => 'Failed to generate development plan (unexpected provider response)',
+                'message' => $err,
+                'provider_status' => $status,
                 'request_id' => $requestId,
-            ], 500);
+            ], $status === null ? 500 : 502);
         }
+
+        AiUsage::record($userId, AiUsage::TYPE_ROADMAP);
 
         $tasks = $this->parsePhasedTasks($content);
 
@@ -234,9 +181,9 @@ class DevelopmentPlanController extends Controller
         ]);
     }
 
-    public function show($projectId)
+    public function show(Request $request, $projectId)
     {
-        $project = Project::where('user_id', auth()->id())
+        $project = Project::where('user_id', $request->user()->id)
             ->findOrFail($projectId);
 
         $plan = DevelopmentPlan::with('phases.tasks')
@@ -258,7 +205,7 @@ class DevelopmentPlanController extends Controller
 
     public function upsert(Request $request, $projectId)
     {
-        $project = Project::where('user_id', auth()->id())->findOrFail($projectId);
+        $project = Project::where('user_id', $request->user()->id)->findOrFail($projectId);
 
         $data = $request->validate([
             'source_type' => 'sometimes|in:manual,ai',
@@ -290,11 +237,12 @@ class DevelopmentPlanController extends Controller
     {
         $taskId = $request->input('task_id');
         $status = $request->input('status');
+        $userId = (int) $request->user()->id;
 
-        $task = DevelopmentPlanTask::whereHas('phase.developmentPlan', function($query) use ($projectId) {
+        $task = DevelopmentPlanTask::whereHas('phase.developmentPlan', function($query) use ($projectId, $userId) {
             $query->where('project_id', $projectId)
-                ->whereHas('project', function($q) {
-                    $q->where('user_id', auth()->id());
+                ->whereHas('project', function($q) use ($userId) {
+                    $q->where('user_id', $userId);
                 });
         })
         ->findOrFail($taskId);

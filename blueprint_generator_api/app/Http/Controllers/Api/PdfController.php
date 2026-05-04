@@ -9,9 +9,9 @@ use Illuminate\Http\Request;
 
 class PdfController extends Controller
 {
-    public function export($id)
+    public function export(Request $request, $id)
     {
-        $project = Project::where('user_id', auth()->id())
+        $project = Project::where('user_id', $request->user()->id)
                 ->findOrFail($id);
 
         $blueprint = $project->blueprint;

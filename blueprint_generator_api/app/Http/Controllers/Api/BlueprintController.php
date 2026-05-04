@@ -3,137 +3,97 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\AiUsage;
 use App\Models\Project;
 use App\Models\Blueprint;
+use App\Services\AIService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Throwable;
 
 class BlueprintController extends Controller
 {
-    public function generate($projectId)
+    private function isGuest(Request $request): bool
+    {
+        $user = $request->user();
+        if (!$user) return false;
+
+        // Do not rely on Sanctum abilities here: default tokens may include the wildcard "*",
+        // which would make tokenCan('guest') true for non-guest users.
+        return (($user->role ?? null) === 'guest');
+    }
+
+    public function generate(Request $request, $projectId, AIService $ai)
     {
         $requestId = (string) (request()->header('X-Request-Id') ?: Str::uuid());
         $start = microtime(true);
-        $userId = auth()->id();
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated',
+                'request_id' => $requestId,
+            ], 401);
+        }
+        $userId = (int) $user->id;
+
+        if (AiUsage::countForToday($userId) >= 5) {
+            return response()->json([
+                'message' => 'Daily AI limit reached',
+                'request_id' => $requestId,
+            ], 403);
+        }
+
+        if ($this->isGuest($request)) {
+            $alreadyGenerated = Blueprint::whereHas('project', function ($q) use ($userId) {
+                $q->where('user_id', $userId);
+            })->exists();
+
+            if ($alreadyGenerated) {
+                return response()->json([
+                    'message' => 'Guest users can only generate 1 blueprint. Please sign up to generate more.',
+                ], 403);
+            }
+        }
 
         $project = Project::where('user_id', $userId)->findOrFail($projectId);
 
         $prompt = $this->buildPrompt($project);
 
-        $apiKey = (string) config('services.openrouter.api_key');
-        $url = (string) config('services.openrouter.url');
-        $model = (string) config('services.openrouter.model');
-
-        if ($apiKey === '' || $url === '' || $model === '') {
-            Log::error('Blueprint generate misconfigured', [
-                'request_id' => $requestId,
-                'user_id' => $userId,
-                'project_id' => $project->id,
-                'has_api_key' => $apiKey !== '',
-                'has_url' => $url !== '',
-                'has_model' => $model !== '',
-            ]);
-
-            return response()->json([
-                'message' => 'AI provider is not configured (missing OPENROUTER_API_KEY / OPENROUTER_URL / AI_MODEL)',
-                'request_id' => $requestId,
-            ], 500);
-        }
-
         Log::info('Blueprint generate started', [
             'request_id' => $requestId,
             'user_id' => $userId,
             'project_id' => $project->id,
-            'model' => $model,
             'prompt_chars' => strlen($prompt),
         ]);
 
-        try {
-            $response = Http::timeout(90)
-                ->retry(1, 250)
-                ->withHeaders([
-                    'Authorization' => 'Bearer ' . $apiKey,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                    // OpenRouter recommended metadata headers (safe defaults)
-                    'HTTP-Referer' => (string) config('app.url'),
-                    'X-Title' => (string) config('app.name'),
-                ])
-                ->post($url, [
-                    'model' => $model,
-                    'messages' => [
-                        [
-                            'role' => 'user',
-                            'content' => $prompt,
-                        ],
-                    ],
-                ]);
-        } catch (Throwable $e) {
-            Log::error('Blueprint generate provider call threw', [
-                'request_id' => $requestId,
-                'user_id' => $userId,
-                'project_id' => $project->id,
-                'model' => $model,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'message' => 'Failed to generate blueprint (provider request error)',
-                'request_id' => $requestId,
-            ], 500);
-        }
-
-        if($response->failed()) {
-            $providerJson = null;
-            try {
-                $providerJson = $response->json();
-            } catch (Throwable) {
-                $providerJson = null;
-            }
-
-            Log::warning('Blueprint generate provider returned error', [
-                'request_id' => $requestId,
-                'user_id' => $userId,
-                'project_id' => $project->id,
-                'model' => $model,
-                'provider_status' => $response->status(),
-                'provider_body' => Str::limit((string) $response->body(), 4000),
-            ]);
-
-            return response()->json([
-                'message' => 'Failed to generate blueprint (provider error: '.$response->status().')',
-                'provider_status' => $response->status(),
-                'error' => $providerJson['error'] ?? $providerJson ?? Str::limit((string) $response->body(), 2000),
-                'request_id' => $requestId,
-            ], 500);
-        }
-
-        $content = data_get($response->json(), 'choices.0.message.content');
+        $content = $ai->generate($prompt);
         if (!is_string($content) || trim($content) === '') {
-            Log::error('Blueprint generate provider response missing content', [
+            $status = $ai->getLastHttpStatus();
+            $err = $ai->getLastError() ?? 'AI generation failed';
+
+            Log::warning('Blueprint generate failed', [
                 'request_id' => $requestId,
                 'user_id' => $userId,
                 'project_id' => $project->id,
-                'model' => $model,
-                'provider_status' => $response->status(),
-                'provider_body' => Str::limit((string) $response->body(), 4000),
+                'provider_status' => $status,
+                'error' => $err,
             ]);
 
             return response()->json([
-                'message' => 'Failed to generate blueprint (unexpected provider response)',
-                'provider_status' => $response->status(),
+                'message' => $err,
+                'provider_status' => $status,
                 'request_id' => $requestId,
-            ], 500);
+            ], $status === null ? 500 : 502);
         }
+
+        AiUsage::record($userId, AiUsage::TYPE_BLUEPRINT);
 
         $blueprint = Blueprint::updateOrCreate(
             ['project_id' => $project->id],
             [
                 'content' => $content,
-                'model' => $model
+                'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
+                'token_used' => $ai->getLastTotalTokens(),
             ]
         );
 
@@ -145,7 +105,7 @@ class BlueprintController extends Controller
             'request_id' => $requestId,
             'user_id' => $userId,
             'project_id' => $project->id,
-            'model' => $model,
+            'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
             'duration_ms' => (int) round((microtime(true) - $start) * 1000),
             'content_chars' => strlen($content),
         ]);
@@ -164,97 +124,111 @@ class BlueprintController extends Controller
         $projectName = (string) ($project->project_name ?? '');
 
         return <<<PROMPT
-You are a senior software architect, business analyst, and solution designer.
+        You are a senior software architect, business analyst, and solution designer.
 
-Your task is to convert a user's simple software idea into a professional and structured Software Project Blueprint.
+Your task is to convert a user's software idea into a professional, structured, and implementation-ready Software Project Blueprint.
 
-The blueprint must be practical, realistic, and suitable for academic projects, startups, or internal business systems.
-
-Use modern software engineering practices.
-
-Return the output in clean markdown format.
+The blueprint must be:
+- Practical and realistic
+- Suitable for final year academic projects and real-world applications
+- Clear, concise, and well-structured
 
 -----------------------------------
 USER PROJECT IDEA:
-{$projectDescription} and TARGET USERS: {$projectTargetUsers}
+{$projectDescription}
+
+TARGET USERS:
+{$projectTargetUsers}
+
+PROJECT NAME (optional reference):
+{$projectName}
+-----------------------------------
+
+Instructions:
+
+- Use clear markdown headings (## for sections)
+- Avoid long paragraphs
+- Do NOT repeat the same ideas across sections
+- Avoid generic or vague statements
+- Ensure all content is specific to the project idea
+- Keep explanations practical and implementable
+
 -----------------------------------
 
 Generate the blueprint with the following sections:
 
-1. Project Title
-Create a professional project name based on the idea. Reference to the user's input is allowed but the title should be polished and marketable. User input: {$projectName}
+## 1. Project Title
+Create a professional and marketable project name.
 
-2. Executive Summary
-Write a short overview of what the system does and why it is valuable.
+## 2. Executive Summary
+Briefly explain what the system does and its value.
 
-3. Problem Statement
-Explain the real-world problem being solved.
+## 3. Problem Statement
+Clearly describe the real-world problem.
 
-4. Target Users
-List who will use the system.
+## 4. Target Users
+List and briefly describe user types.
 
-5. Key Features
-Provide 10 detailed features.
+## 5. Key Features
+Provide 8–10 specific and practical features.
 
-6. Functional Requirements
-Provide 10 clear system functions using: "The system must..."
+## 6. Functional Requirements
+Provide 8–10 statements using:
+"The system must..."
 
-7. Non-Functional Requirements
-Provide 8 requirements covering:
-- Security
-- Performance
-- Scalability
-- Reliability
-- Responsiveness
-- Maintainability
-- Accessibility
-- Availability
+## 7. Non-Functional Requirements
+Provide 6–8 requirements covering:
+security, performance, scalability, reliability, usability, availability
 
-8. User Stories
-Provide at least 6 user stories using:
+## 8. User Stories
+Provide 5–6 user stories:
 "As a [user], I want [goal], so that [benefit]"
 
-9. Recommended Tech Stack
+## 9. Recommended Tech Stack
 Suggest:
 - Frontend
 - Backend
 - Database
 - Authentication
 - Hosting
-- Optional AI/API integrations
+- Optional APIs (only if relevant)
 
-10. Database Tables
-Suggest core tables with columns, primary keys, and relationships.
+Briefly justify key choices.
 
-11. API Modules
-Suggest important APIs or modules.
+## 10. Database Design
+List core tables with:
+- Table name
+- Key columns
+- Relationships (brief)
 
-12. Development Roadmap
-Split into 4 phases:
-Phase 1: MVP
-Phase 2: Core Features
-Phase 3: Advanced Features
-Phase 4: Deployment & Optimization
+## 11. Risk Analysis
+List 4–5 realistic risks with mitigation strategies.
 
-13. Risk Analysis
-List 5 project risks with mitigation.
+## 12. Future Enhancements
+List 4–5 meaningful improvements.
 
-14. Future Enhancements
-List 5 future improvements.
+-----------------------------------
 
-Rules:
-- Be realistic
-- Avoid generic filler text
-- Make features specific to the project idea
-- Use professional language
-- Use startup + academic level quality
-- If project is simple, intelligently expand it
+Final Rules:
+
+- Be realistic and implementation-focused
+- Avoid over-engineering or complex unnecessary technologies
+- Keep the output clean and readable for PDF export
+- Ensure consistency across all sections
 PROMPT;
+
     }
 
-    public function show($projectId)
+    public function show(Request $request, $projectId)
     {
-        $project = Project::where('user_id', auth()->id())
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated',
+            ], 401);
+        }
+
+        $project = Project::where('user_id', $user->id)
                 ->findOrFail($projectId);
 
         $blueprint = $project->blueprint;

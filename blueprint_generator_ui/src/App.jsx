@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import RequireAuth from './auth/RequireAuth'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Dashboard from './pages/Dashboard'
 import ProjectsList from './pages/ProjectsList'
 import ProjectCreate from './pages/ProjectCreate'
 import ProjectDetail from './pages/ProjectDetail'
@@ -19,7 +20,8 @@ function App() {
 
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
-            <Route path="/" element={<Navigate to="/projects" replace />} />
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/projects" element={<ProjectsList />} />
             <Route path="/projects/new" element={<ProjectCreate />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />

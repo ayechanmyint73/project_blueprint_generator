@@ -12,7 +12,8 @@ import {
 } from 'react-icons/hi'
 
 export default function AppShell() {
-  const { user, logout } = useAuth()
+  // const { user, logout } = useAuth()
+  const {logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
@@ -39,10 +40,14 @@ export default function AppShell() {
 
         <div className="sidebar-section">Menu</div>
         <nav className="sidebar-nav">
-          <NavLink to="/projects" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
+          <NavLink end to="/dashboard" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
             <HiOutlineHome size={19} /> Dashboard
           </NavLink>
+          <NavLink end to="/projects" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
+            <HiOutlineDocumentText size={19} /> Projects
+          </NavLink>
           <NavLink
+            end
             to="/projects/new"
             className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}
           >
@@ -55,8 +60,9 @@ export default function AppShell() {
         </div>
         <nav className="sidebar-nav">
           <NavLink
+            end
             to={onProjectDetail ? `/projects/${projectId}?view=project` : '#'}
-            className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
+            className={({ isActive }) => `side-link ${isActive && onProjectDetail ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
             onClick={(e) => {
               if (!onProjectDetail) e.preventDefault()
             }}
@@ -64,8 +70,9 @@ export default function AppShell() {
             <HiOutlineDocumentText size={19} /> Project Blueprint
           </NavLink>
           <NavLink
+            end
             to={onProjectDetail ? `/projects/${projectId}/planning` : '#'}
-            className={({ isActive }) => `side-link ${isActive ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
+            className={({ isActive }) => `side-link ${isActive && onProjectDetail ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
             onClick={(e) => {
               if (!onProjectDetail) e.preventDefault()
             }}
@@ -74,15 +81,15 @@ export default function AppShell() {
           </NavLink>
         </nav>
 
-          <NavLink to="/settings" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
+          <NavLink end to="/settings" className={({ isActive }) => `side-link ${isActive ? 'active' : ''}`}>
             <HiOutlineCog size={19} /> Settings
           </NavLink>
 
         <div className="sidebar-footer">
-          <div className="sidebar-user">
-            {/* <div className="sidebar-user-name">{user?.name ?? 'User'}</div> */}
+          {/* <div className="sidebar-user">
+            <div className="sidebar-user-name">{user?.name ?? 'User'}</div>
             <div className="sidebar-user-email muted">{user?.email}</div>
-          </div>
+          </div> */}
           <button type="button" className="secondary-btn sidebar-logout" onClick={onLogout}>
             <HiOutlineLogout size={19} /> Sign out
           </button>

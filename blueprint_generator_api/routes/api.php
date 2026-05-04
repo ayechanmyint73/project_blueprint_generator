@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BlueprintController;
 use App\Http\Controllers\Api\DevelopmentPlanController;
+use App\Http\Controllers\Api\GuestController;
 use App\Http\Controllers\Api\PdfController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\SettingController;
@@ -51,3 +52,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/settings/profile', [SettingController::class, 'updateProfile']);
     Route::put('/settings/password', [SettingController::class, 'changePassword']);
 });
+
+Route::post('/guest/login', [GuestController::class, 'login']);
+Route::post('/guest/generate', [GuestController::class, 'generate']);

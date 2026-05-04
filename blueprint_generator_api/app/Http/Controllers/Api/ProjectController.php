@@ -8,6 +8,16 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
+    private function isGuest(Request $request): bool
+    {
+        $user = $request->user();
+        if (!$user) return false;
+
+        // Do not rely on Sanctum abilities here: default tokens may include the wildcard "*",
+        // which would make tokenCan('guest') true for non-guest users.
+        return (($user->role ?? null) === 'guest');
+    }
+
     public function store(Request $request)
     {
         $request->validate([
@@ -16,8 +26,18 @@ class ProjectController extends Controller
             'target_users' => 'required|string',
         ]);
 
+        $user = $request->user();
+        if ($this->isGuest($request)) {
+            $alreadyHasProject = Project::where('user_id', $user->id)->exists();
+            if ($alreadyHasProject) {
+                return response()->json([
+                    'message' => 'Guest users can only create 1 project blueprint. Please sign up to generate more.',
+                ], 403);
+            }
+        }
+
         $project = Project::create([
-            'user_id' => $request->user()->id,
+            'user_id' => $user->id,
             'project_name' => $request->project_name,
             'description' => $request->description,
             'target_users' => $request->target_users,
@@ -32,18 +52,18 @@ class ProjectController extends Controller
 
     public function index()
     {
-        return auth()->user()->projects()->latest()->get();
+        return request()->user()->projects()->latest()->get();
     }
 
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        return Project::where('user_id', auth()->id())
+        return Project::where('user_id', $request->user()->id)
         ->findOrFail($id);
     }
 
     public function update(Request $request, $id)
     {
-        $project = Project::where('user_id', auth()->id())
+        $project = Project::where('user_id', $request->user()->id)
         ->findOrFail($id);
 
         $request->validate([
@@ -68,7 +88,7 @@ class ProjectController extends Controller
 
     public function destroy($id)
     {
-        $project = Project::where('user_id', auth()->id())
+        $project = Project::where('user_id', request()->user()->id)
         ->findOrFail($id);
 
         $project->delete();

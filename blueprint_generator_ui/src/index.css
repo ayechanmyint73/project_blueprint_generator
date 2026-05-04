@@ -1,12 +1,17 @@
 :root {
-  --brand: #6366f1;
-  --slate: #1e293b;
-  --bg: #f8fafc;
-  --card: #ffffff;
-  --glow: #06b6d4;
-  --success: #10b981;
-  --warning: #f59e0b;
-  --neutral: #94a3b8;
+--brand: #4f46e5; 
+--slate: #334155; 
+--bg: #fafafa; 
+--card: #ffffff; 
+--accent: #cbd5e1; 
+--success: #059669; 
+--warning: #d97706;
+--neutral: #64748b;
+
+--bg-main: #f8fafc;
+  --bg-grid: #e2e8f0; /* Subtle grid line color */
+  --radius-sm: 4px;   /* For buttons/inputs */
+  --radius-lg: 12px;  /* For main feature cards */
   --nav-h: 72px;
 
   --text: var(--slate);
@@ -21,9 +26,13 @@
     rgba(30, 41, 59, 0.14) 0 10px 18px -8px,
     rgba(30, 41, 59, 0.08) 0 6px 12px -10px;
 
-  --sans: Poppins, sans-serif;
-  --heading: Poppins, sans-serif;
-  --mono: Poppins, sans-serif;
+  --sans: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  
+  /* Headings: Stronger, more structured */
+  --heading: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+  
+  /* The "Blueprint" Secret: Use a mono font for the actual generated data */
+  --mono: 'JetBrains Mono', 'Fira Code', monospace;
 
   font: 16px/145% var(--sans);
   letter-spacing: 0.18px;
@@ -34,6 +43,7 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 
   @media (max-width: 1024px) {
     font-size: 15px;

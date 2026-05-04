@@ -15,3 +15,8 @@ export async function createProject(payload) {
   return res.data
 }
 
+export async function getDashboardStats() {
+  const res = await http.get('/api/projects/dashboard/stats')
+  return res.data
+}
+

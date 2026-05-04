@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 
 function isValidEmail(value) {
@@ -23,7 +23,9 @@ function getApiError(err, fallback) {
 }
 
 export default function Register() {
-  const { register } = useAuth()
+  const { register, guestLogin } = useAuth()
+  const location = useLocation()
+  const from = useMemo(() => location.state?.from ?? '/projects', [location.state])
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -186,6 +188,33 @@ export default function Register() {
             {submitting ? 'Creating…' : 'Create account'}
           </button>
         </form>
+
+        
+        <div className="divider">or</div>
+        
+        <button 
+          type="button" 
+          className="secondary-btn" 
+          style={{ 
+            width: '100%', 
+            justifyContent: 'center',
+            marginBottom: '8px'
+          }}
+          onClick={async () => {
+            setSubmitting(true)
+            setError('')
+            try {
+              await guestLogin({ remember })
+              navigate(from, { replace: true })
+            } catch (err) {
+              setError(getApiError(err, 'Guest login failed'))
+            } finally {
+              setSubmitting(false)
+            }
+          }}
+        >
+          Continue as Guest
+        </button>
 
         <div className="auth-footer">
           Already have an account? <Link to="/login">Sign in</Link>

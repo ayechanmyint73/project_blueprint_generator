@@ -2,12 +2,16 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createProject } from '../api/projects'
 import { generateBlueprint } from '../api/blueprints'
+import {
+  HiOutlineSparkles,
+} from 'react-icons/hi'
 
 export default function ProjectCreate() {
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
   const [targetUsers, setTargetUsers] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [modal, setModal] = useState({ open: false, projectId: null, error: '' })
   const [error, setError] = useState('')
   const [touched, setTouched] = useState({
     projectName: false,
@@ -28,6 +32,19 @@ export default function ProjectCreate() {
 
   const isValid = Object.keys(fieldErrors).length === 0
 
+  async function runGeneration(projectId) {
+    setModal({ open: true, projectId, error: '' })
+    try {
+      await generateBlueprint(projectId)
+      navigate(`/projects/${projectId}?view=overview`, { replace: true })
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? 'Failed to generate blueprint'
+      setModal({ open: true, projectId, error: msg })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   async function onSubmit(e) {
     e.preventDefault()
     setError('')
@@ -42,14 +59,10 @@ export default function ProjectCreate() {
       })
       const id = data?.project?.id
       if (id) {
-        try {
-          await generateBlueprint(id)
-        } catch (err) {
-          // If generation fails, still navigate to the detail page so the user can retry there.
-          console.error('Failed to generate blueprint after create:', err)
-        }
-        navigate(`/projects/${id}?view=overview`, { replace: true })
+        // Requirement: generation happens immediately from create flow, not from ProjectDetail.
+        await runGeneration(id)
       } else {
+        setSubmitting(false)
         navigate('/projects', { replace: true })
       }
     } catch (err) {
@@ -60,7 +73,7 @@ export default function ProjectCreate() {
           : 'Failed to create project')
       setError(msg)
     } finally {
-      setSubmitting(false)
+      if (!modal.open) setSubmitting(false)
     }
   }
 
@@ -142,11 +155,67 @@ export default function ProjectCreate() {
 
           <div className="form-actions">
             <button type="submit" disabled={submitting || !isValid}>
-              {submitting ? 'Generating…' : 'Generate blueprint'}
+              <HiOutlineSparkles size={18} />
+              {submitting ? 'Generating…' : 'Generate Blueprint'}
             </button>
           </div>
         </form>
       </div>
+
+      {modal.open ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Generating blueprint">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">
+                  {modal.error ? 'Generation failed' : 'Generating your blueprint'}
+                </h3>
+                <div className="modal-subtitle muted">
+                  {modal.error
+                    ? 'You can retry generation or open the project to view/edit details.'
+                    : 'This can take up to a minute. Please keep this window open.'}
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-body">
+              {!modal.error ? (
+                <div className="modal-status">
+                  <div className="spinner-large" aria-hidden="true" />
+                  <div>
+                    <div style={{ fontWeight: 750, color: 'var(--text-h)' }}>Calling AI provider…</div>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      Creating sections, requirements, and roadmap
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="error" role="alert" style={{ marginTop: 10, whiteSpace: 'pre-wrap' }}>
+                  {modal.error}
+                </div>
+              )}
+
+              <div className="modal-actions">
+                {modal.projectId ? (
+                  <button
+                    type="button"
+                    className="secondary-btn"
+                    onClick={() => navigate(`/projects/${modal.projectId}?view=overview`, { replace: true })}
+                  >
+                    Open project
+                  </button>
+                ) : null}
+
+                {modal.error && modal.projectId ? (
+                  <button type="button" className="primary-btn" onClick={() => runGeneration(modal.projectId)}>
+                    Retry generation
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

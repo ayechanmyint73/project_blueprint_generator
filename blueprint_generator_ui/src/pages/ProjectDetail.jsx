@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
-import { exportBlueprintPdf, generateBlueprint, getBlueprint } from '../api/blueprints'
+import { exportBlueprintPdf, getBlueprint } from '../api/blueprints'
 import {
   HiOutlineSparkles,
   HiOutlineRefresh,
@@ -73,7 +73,13 @@ function getSectionCategory(title) {
     t.includes('database schema') ||
     t.includes('tables') ||
     t.includes('table') ||
-    t.includes('database')
+    t.includes('database') ||
+    t.includes('api modules') ||
+    t.includes('api module') ||
+    t.includes('api outline') ||
+    t.includes('development roadmap') ||
+    t.includes('roadmap') ||
+    t.includes('development plan')
   ) {
     return 'techdata'
   }
@@ -151,6 +157,106 @@ function getNumberedMatch(line) {
   return line.trim().match(/^(\d+)[.)]\s+(.+)$/)
 }
 
+function renderInline(text) {
+  const value = String(text ?? '')
+  const parts = []
+  let i = 0
+  let key = 0
+
+  const re = /(\*\*[^*]+\*\*|`[^`]+`)/g
+  let m
+  while ((m = re.exec(value)) !== null) {
+    const before = value.slice(i, m.index)
+    if (before) parts.push(<span key={`t_${key++}`}>{before}</span>)
+
+    const token = m[0]
+    if (token.startsWith('**')) {
+      parts.push(<strong key={`b_${key++}`}>{token.slice(2, -2)}</strong>)
+    } else if (token.startsWith('`')) {
+      parts.push(<code key={`c_${key++}`} className="doc-inline-code">{token.slice(1, -1)}</code>)
+    }
+
+    i = m.index + token.length
+  }
+  const rest = value.slice(i)
+  if (rest) parts.push(<span key={`t_${key++}`}>{rest}</span>)
+
+  return parts
+}
+
+function splitTableRows(line) {
+  // Some models output table rows on one line using "||" between rows.
+  // Keep single "|" as cell separators.
+  return String(line ?? '')
+    .split('||')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function looksLikeTableRow(line) {
+  const t = String(line ?? '').trim()
+  if (!t.includes('|')) return false
+  // Require at least 2 pipes to look like a row with 2+ columns
+  const pipeCount = (t.match(/\|/g) ?? []).length
+  return pipeCount >= 2
+}
+
+function looksLikeSeparatorRow(line) {
+  const t = String(line ?? '').trim()
+  // Typical markdown separator: | --- | --- |
+  return /^[\s|:-]+$/.test(t) && t.includes('-')
+}
+
+function parseTableRow(row) {
+  const raw = String(row ?? '').trim()
+  const trimmed = raw.startsWith('|') ? raw.slice(1) : raw
+  const cleaned = trimmed.endsWith('|') ? trimmed.slice(0, -1) : trimmed
+  return cleaned
+    .split('|')
+    .map((c) => c.trim())
+    .filter((c) => c !== '')
+}
+
+function parseTableBlock(lines, startIndex) {
+  let i = startIndex
+  const rows = []
+
+  while (i < lines.length) {
+    const line = lines[i]
+    if (!line.trim()) break
+    if (!looksLikeTableRow(line)) break
+
+    for (const row of splitTableRows(line)) {
+      // Skip pure separator rows in accumulation (we handle header detection separately)
+      rows.push(row)
+    }
+    i += 1
+  }
+
+  if (rows.length < 2) return null
+
+  // If the second row is a separator row, treat first row as header
+  let header = null
+  let bodyStart = 0
+  if (rows.length >= 2 && looksLikeSeparatorRow(rows[1])) {
+    header = parseTableRow(rows[0])
+    bodyStart = 2
+  }
+
+  const bodyRows = rows.slice(bodyStart).map(parseTableRow).filter((r) => r.length > 0)
+  if ((!header || header.length === 0) && bodyRows.length === 0) return null
+
+  const colCount = Math.max(header?.length ?? 0, ...bodyRows.map((r) => r.length))
+  const normalizedHeader = header ? [...header, ...Array(Math.max(0, colCount - header.length)).fill('')] : null
+  const normalizedBody = bodyRows.map((r) => [...r, ...Array(Math.max(0, colCount - r.length)).fill('')])
+
+  return {
+    nextIndex: i,
+    header: normalizedHeader,
+    rows: normalizedBody,
+  }
+}
+
 function renderDocContent(content) {
   if (!content) return null
   const lines = content.split('\n')
@@ -166,19 +272,78 @@ function renderDocContent(content) {
       continue
     }
 
+    // Markdown-like tables
+    if (looksLikeTableRow(line)) {
+      const table = parseTableBlock(lines, i)
+      if (table && (table.header || table.rows.length)) {
+        nodes.push(
+          <div key={`tbl_${key++}`} className="doc-table-wrap">
+            <table className="doc-table">
+              {table.header ? (
+                <thead>
+                  <tr>
+                    {table.header.map((h, idx) => (
+                      <th key={idx} scope="col">
+                        {renderInline(h)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              ) : null}
+              <tbody>
+                {table.rows.map((r, ridx) => (
+                  <tr key={ridx}>
+                    {r.map((c, cidx) => (
+                      <td key={cidx}>{renderInline(c)}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>,
+        )
+        i = table.nextIndex
+        continue
+      }
+    }
+
+    const trimmed = line.trim()
+    const isShortLabel = trimmed.endsWith(':') && trimmed.length <= 48 && !isBulletLine(trimmed)
+    if (isShortLabel) {
+      nodes.push(
+        <div key={`h_${key++}`} className="doc-subhead">
+          {renderInline(trimmed.slice(0, -1))}
+        </div>,
+      )
+      i += 1
+      continue
+    }
+
     if (isBulletLine(line)) {
       const items = []
       while (i < lines.length && isBulletLine(lines[i])) {
         items.push(getBulletText(lines[i]))
         i += 1
       }
-      const asGrid = items.length >= 6
+
+      const reqLike = items.filter((t) => /^the system must\b/i.test(String(t ?? '').trim())).length
+      const asOrdered = items.length >= 6 && reqLike >= Math.ceil(items.length * 0.6)
+      const asGrid = !asOrdered && items.length >= 6
+
       nodes.push(
-        <ul key={`u_${key++}`} className={`doc-list ${asGrid ? 'doc-list-grid' : ''}`}>
-          {items.map((t, idx) => (
-            <li key={idx}>{t}</li>
-          ))}
-        </ul>
+        asOrdered ? (
+          <ol key={`o_${key++}`} className="doc-olist doc-olist-clean">
+            {items.map((t, idx) => (
+              <li key={idx}>{renderInline(t)}</li>
+            ))}
+          </ol>
+        ) : (
+          <ul key={`u_${key++}`} className={`doc-list ${asGrid ? 'doc-list-grid' : ''}`}>
+            {items.map((t, idx) => (
+              <li key={idx}>{renderInline(t)}</li>
+            ))}
+          </ul>
+        ),
       )
       continue
     }
@@ -195,7 +360,7 @@ function renderDocContent(content) {
       nodes.push(
         <ol key={`o_${key++}`} className="doc-olist">
           {items.map((t, idx) => (
-            <li key={idx}>{t}</li>
+            <li key={idx}>{renderInline(t)}</li>
           ))}
         </ol>
       )
@@ -209,7 +374,7 @@ function renderDocContent(content) {
     }
     nodes.push(
       <p key={`p_${key++}`} className="doc-paragraph">
-        {paraLines.join(' ')}
+        {renderInline(paraLines.join(' '))}
       </p>
     )
   }
@@ -240,10 +405,8 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null)
   const [blueprint, setBlueprint] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [generating, setGenerating] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
   const [error, setError] = useState('')
-  const [genError, setGenError] = useState('')
   const view = searchParams.get('view') ?? 'overview'
 
   useEffect(() => {
@@ -291,23 +454,6 @@ export default function ProjectDetail() {
       setSearchParams({ view: 'overview' }, { replace: true })
     }
   }, [view, setSearchParams])
-
-  // Handle blueprint generation
-  async function handleGenerateBlueprint() {
-    setGenError('')
-    setGenerating(true)
-    try {
-      const data = await generateBlueprint(id)
-      setBlueprint(data?.data)
-      // Refresh project to get updated status
-      const projectData = await getProject(id)
-      setProject(projectData)
-    } catch (err) {
-      setGenError(err?.response?.data?.message ?? 'Failed to generate blueprint')
-    } finally {
-      setGenerating(false)
-    }
-  }
 
   function parseFilenameFromContentDisposition(value) {
     if (!value) return null
@@ -362,7 +508,11 @@ export default function ProjectDetail() {
 
   const overviewSections = useMemo(() => {
     const allowed = new Set(['project title', 'executive summary', 'problem statement', 'target users'])
-    return blueprintSections.filter((s) => allowed.has(normalizeTitle(s?.title)))
+    const pinned = blueprintSections.filter((s) => allowed.has(normalizeTitle(s?.title)))
+    const others = blueprintSections.filter(
+      (s) => getSectionCategory(s?.title) === 'overview' && !allowed.has(normalizeTitle(s?.title)),
+    )
+    return [...pinned, ...others]
   }, [blueprintSections])
 
   const content = (() => {
@@ -372,24 +522,16 @@ export default function ProjectDetail() {
 
     return (
       <>
-        {!blueprint && !generating ? (
+        {!blueprint ? (
           <div className="blueprint-empty">
             <div className="blueprint-empty-icon">
               <HiOutlineDocumentText size={48} />
             </div>
             <h3>No Blueprint Generated Yet</h3>
-            <p className="muted">Generate an AI-powered blueprint based on your project description.</p>
-            {genError ? (
-              <div className="error" role="alert" style={{ marginBottom: 16 }}>
-                {genError}
-              </div>
-            ) : null}
-          </div>
-        ) : generating ? (
-          <div className="blueprint-generating">
-            <div className="spinner-large" />
-            <h3>Generating Blueprint...</h3>
-            <p className="muted">Our AI is analyzing your project and creating a comprehensive blueprint.</p>
+            <p className="muted">
+              Blueprints are generated automatically right after you submit the Create Project form.
+              If you just created this project, please refresh in a moment.
+            </p>
           </div>
         ) : (
           <div className="doc-wrap" aria-label="Blueprint document">
@@ -462,10 +604,7 @@ export default function ProjectDetail() {
               {exportingPdf ? 'Exporting…' : 'Export PDF'}
             </button>
           ) : null}
-          <button type="button" className="primary-btn" onClick={handleGenerateBlueprint} disabled={generating}>
-            <HiOutlineSparkles size={18} />
-            {blueprint ? 'Regenerate' : 'Generate Blueprint'}
-          </button>
+          {/* Generation happens from the Create Project flow */}
         </div>
       </div>
 
