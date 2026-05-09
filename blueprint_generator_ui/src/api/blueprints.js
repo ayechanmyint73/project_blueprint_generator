@@ -1,7 +1,9 @@
 import { http } from './http'
 
-export async function generateBlueprint(projectId) {
-  const res = await http.post(`/api/projects/${projectId}/generate`)
+export async function generateBlueprint(projectId, regenerateMode = 'overwrite') {
+  const res = await http.post(`/api/projects/${projectId}/generate`, {
+    regenerate_mode: regenerateMode,
+  })
   return res.data
 }
 

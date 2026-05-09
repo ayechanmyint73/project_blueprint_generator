@@ -25,7 +25,12 @@ class Project extends Model
 
     public function blueprint()
     {
-        return $this->hasOne(Blueprint::class);
+        return $this->hasOne(Blueprint::class)->where('is_current', true);
+    }
+
+    public function blueprints()
+    {
+        return $this->hasMany(Blueprint::class);
     }
 
     public function developmentPlan()

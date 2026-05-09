@@ -82,14 +82,14 @@ class ProjectUploadController extends Controller
                 ], 502);
             }
 
-            $blueprint = Blueprint::updateOrCreate(
-                ['project_id' => $project->id],
-                [
-                    'content' => $blueprintContent,
-                    'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
-                    'token_used' => $ai->getLastTotalTokens(),
-                ]
-            );
+            $blueprint = Blueprint::create([
+                'project_id' => $project->id,
+                'version' => 1,
+                'is_current' => true,
+                'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
+                'token_used' => $ai->getLastTotalTokens(),
+            ]);
+            $this->syncSections($blueprint, $blueprintContent);
 
             AiUsage::record((int) $user->id, AiUsage::TYPE_BLUEPRINT);
 
@@ -181,5 +181,65 @@ PROMPT;
         $normalized = preg_replace('/^```json\s*/i', '', $normalized) ?? $normalized;
         $normalized = preg_replace('/\s*```$/', '', $normalized) ?? $normalized;
         return trim($normalized);
+    }
+
+    private function syncSections(Blueprint $blueprint, string $content): void
+    {
+        $sections = $this->parseSectionsFromMarkdown($content);
+        $blueprint->sections()->delete();
+
+        foreach ($sections as $idx => $section) {
+            $blueprint->sections()->create([
+                'section_key' => $section['key'],
+                'title' => $section['title'],
+                'content' => $section['content'],
+                'sort_order' => $idx + 1,
+            ]);
+        }
+    }
+
+    private function parseSectionsFromMarkdown(string $content): array
+    {
+        $lines = preg_split("/\r\n|\n|\r/", $content) ?: [];
+        $sections = [];
+        $currentTitle = null;
+        $currentBody = [];
+
+        $flush = function () use (&$sections, &$currentTitle, &$currentBody): void {
+            if ($currentTitle === null) return;
+            $sections[] = [
+                'title' => $currentTitle,
+                'key' => $this->toSectionKey($currentTitle),
+                'content' => trim(implode("\n", $currentBody)),
+            ];
+        };
+
+        foreach ($lines as $line) {
+            if (preg_match('/^\s*##\s*(.+)\s*$/', (string) $line, $m)) {
+                $flush();
+                $currentTitle = trim($m[1]);
+                $currentBody = [];
+                continue;
+            }
+            if ($currentTitle !== null) {
+                $currentBody[] = $line;
+            }
+        }
+
+        $flush();
+        return $sections;
+    }
+
+    private function toSectionKey(string $title): string
+    {
+        $normalized = Str::of($title)
+            ->lower()
+            ->replaceMatches('/^\d+\s*[.)-]?\s*/', '')
+            ->replace(['&', '/'], ' ')
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->toString();
+
+        return $normalized !== '' ? $normalized : 'section_' . Str::random(6);
     }
 }

@@ -22,6 +22,8 @@ class PdfController extends Controller
             ], 404);
         }
 
+        $blueprint->load('sections');
+
         $pdf = Pdf::loadView('pdf.premium-blueprint', compact('project','blueprint'))
           ->setPaper('a4', 'portrait');
 

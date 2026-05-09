@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
-import { exportBlueprintPdf, getBlueprint } from '../api/blueprints'
+import { exportBlueprintPdf, generateBlueprint, getBlueprint } from '../api/blueprints'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   HiOutlineSparkles,
@@ -32,6 +32,7 @@ const VIEWS = [
   { id: 'features', label: 'Features', icon: HiOutlineLightningBolt },
   { id: 'requirements', label: 'Requirements', icon: HiOutlineClipboardList },
   { id: 'userstories', label: 'User Stories', icon: HiOutlineUsers },
+  { id: 'usecase', label: 'Use-Case Diagram', icon: HiOutlineCode },
   { id: 'techdata', label: 'Tech & Data', icon: HiOutlineCube },
   { id: 'flowchart', label: 'Flow Chart', icon: HiOutlineCode },
   { id: 'risks', label: 'Risk Analysis', icon: HiOutlineShieldExclamation },
@@ -70,6 +71,7 @@ function getSectionCategory(title) {
     return 'requirements'
   }
   if (t.includes('user stories') || t.includes('user story')) return 'userstories'
+  if (t.includes('use case diagram') || t.includes('use-case diagram') || t.includes('use case')) return 'usecase'
   if (
     t.includes('recommended tech stack') ||
     t.includes('tech stack') ||
@@ -623,6 +625,8 @@ export default function ProjectDetail() {
   const [blueprint, setBlueprint] = useState(null)
   const [loading, setLoading] = useState(true)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+  const [regenModalOpen, setRegenModalOpen] = useState(false)
   const [error, setError] = useState('')
   const view = searchParams.get('view') ?? 'overview'
 
@@ -709,7 +713,35 @@ export default function ProjectDetail() {
     }
   }
 
+  async function handleRegenerate(mode = 'overwrite') {
+    if (!id) return
+
+    setError('')
+    setRegenerating(true)
+    try {
+      await generateBlueprint(id, mode)
+      const [projectData, blueprintData] = await Promise.all([getProject(id), getBlueprint(id)])
+      setProject(projectData)
+      setBlueprint(blueprintData?.data ?? null)
+      setRegenModalOpen(false)
+    } catch (err) {
+      const msg = err?.response?.data?.message ?? 'Failed to regenerate blueprint'
+      setError(msg)
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
   const blueprintSections = useMemo(() => {
+    if (Array.isArray(blueprint?.sections) && blueprint.sections.length > 0) {
+      return blueprint.sections
+        .slice()
+        .sort((a, b) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
+        .map((section) => ({
+          title: section?.title ?? '',
+          content: section?.content ?? '',
+        }))
+    }
     return parseBlueprintContent(blueprint?.content)
   }, [blueprint])
 
@@ -768,14 +800,14 @@ export default function ProjectDetail() {
               ) : null}
               {(view === 'overview' ? overviewSections : sectionsForView).map((section, index) => {
                 const k = `${view}:${id}:${index}:${section?.title ?? ''}`
-                const mermaidCode = view === 'flowchart' ? extractMermaidCode(section.content) : ''
+                const mermaidCode = view === 'flowchart' || view === 'usecase' ? extractMermaidCode(section.content) : ''
                 return (
                   <div key={k} className="doc-section" role="region" aria-label={section.title}>
                     <div className="doc-section-summary">
                       <span className="doc-section-title">{section.title}</span>
                     </div>
                     <div className="doc-section-body">
-                      {view === 'flowchart' ? <MermaidChart code={mermaidCode} /> : renderDocContent(section.content)}
+                      {view === 'flowchart' || view === 'usecase' ? <MermaidChart code={mermaidCode} /> : renderDocContent(section.content)}
                     </div>
                   </div>
                 )
@@ -814,15 +846,26 @@ export default function ProjectDetail() {
 
         <div className="project-hero-actions">
           {blueprint ? (
-            <button
-              type="button"
-              className="secondary-btn"
-              onClick={handleExportPdf}
-              disabled={exportingPdf}
-            >
-              <HiOutlineDocumentText size={18} />
-              {exportingPdf ? 'Exporting…' : 'Export PDF'}
-            </button>
+            <>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setRegenModalOpen(true)}
+                disabled={regenerating}
+              >
+                <HiOutlineRefresh size={18} />
+                {regenerating ? 'Regenerating…' : 'Regenerate'}
+              </button>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={handleExportPdf}
+                disabled={exportingPdf || regenerating}
+              >
+                <HiOutlineDocumentText size={18} />
+                {exportingPdf ? 'Exporting…' : 'Export PDF'}
+              </button>
+            </>
           ) : null}
           {/* Generation happens from the Create Project flow */}
         </div>
@@ -853,6 +896,49 @@ export default function ProjectDetail() {
       ) : (
         <div className="project-content">{content}</div>
       )}
+
+      {regenModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Regenerate blueprint">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Regenerate blueprint</h3>
+                <div className="modal-subtitle muted">
+                  Choose how to save the regenerated result.
+                </div>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => handleRegenerate('overwrite')}
+                  disabled={regenerating}
+                >
+                  {regenerating ? 'Regenerating…' : 'Overwrite'}
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => handleRegenerate('version')}
+                  disabled={regenerating}
+                >
+                  {regenerating ? 'Regenerating…' : `Keep as version ${(Number(blueprint?.version) || 1) + 1}`}
+                </button>
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setRegenModalOpen(false)}
+                  disabled={regenerating}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

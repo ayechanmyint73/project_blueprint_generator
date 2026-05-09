@@ -127,55 +127,56 @@
 <body>
 
 @php
-    $content = (string) ($blueprint->content ?? '');
-    $lines = preg_split("/\r\n|\r|\n/", $content);
-
     $sections = [];
-    $currentTitle = null;
-    $currentLines = [];
-
-    $flush = function () use (&$sections, &$currentTitle, &$currentLines) {
-        if (!$currentTitle) return;
-        $sections[] = [
-            'title' => $currentTitle,
-            'lines' => $currentLines,
-        ];
-    };
-
-    foreach ($lines as $line) {
-        $raw = (string) $line;
-        $trim = trim($raw);
-
-        // Markdown header: ## Title
-        if (preg_match('/^#{1,3}\s+(.+)$/', $trim, $m)) {
-            $flush();
-            $currentTitle = trim($m[1]);
-            $currentLines = [];
-            continue;
+    if (isset($blueprint->sections) && count($blueprint->sections) > 0) {
+        foreach ($blueprint->sections as $section) {
+            $sections[] = [
+                'title' => (string) ($section->title ?? ''),
+                'lines' => preg_split("/\r\n|\r|\n/", (string) ($section->content ?? '')) ?: [],
+            ];
         }
+    } else {
+        $content = (string) ($blueprint->content ?? '');
+        $lines = preg_split("/\r\n|\r|\n/", $content);
+        $currentTitle = null;
+        $currentLines = [];
 
-        // Numbered header: "1. Title"
-        if (preg_match('/^(\d+)[.)]\s+(.+)$/', $trim, $m)) {
-            $maybeTitle = trim($m[2]);
-            $looksLikeHeader = strlen($maybeTitle) <= 64
-                && stripos($maybeTitle, 'the system') !== 0
-                && strpos($maybeTitle, ':') === false;
+        $flush = function () use (&$sections, &$currentTitle, &$currentLines) {
+            if (!$currentTitle) return;
+            $sections[] = [
+                'title' => $currentTitle,
+                'lines' => $currentLines,
+            ];
+        };
 
-            if ($looksLikeHeader) {
+        foreach ($lines as $line) {
+            $raw = (string) $line;
+            $trim = trim($raw);
+            if (preg_match('/^#{1,3}\s+(.+)$/', $trim, $m)) {
                 $flush();
-                $currentTitle = $maybeTitle;
+                $currentTitle = trim($m[1]);
                 $currentLines = [];
                 continue;
             }
+            if (preg_match('/^(\d+)[.)]\s+(.+)$/', $trim, $m)) {
+                $maybeTitle = trim($m[2]);
+                $looksLikeHeader = strlen($maybeTitle) <= 64
+                    && stripos($maybeTitle, 'the system') !== 0
+                    && strpos($maybeTitle, ':') === false;
+                if ($looksLikeHeader) {
+                    $flush();
+                    $currentTitle = $maybeTitle;
+                    $currentLines = [];
+                    continue;
+                }
+            }
+            if ($currentTitle === null && $trim !== '') {
+                $currentTitle = 'Overview';
+            }
+            $currentLines[] = $raw;
         }
-
-        if ($currentTitle === null && $trim !== '') {
-            $currentTitle = 'Overview';
-        }
-
-        $currentLines[] = $raw;
+        $flush();
     }
-    $flush();
 
     $renderBlocks = function (array $lines) {
         $out = [];

@@ -56,6 +56,10 @@ class BlueprintController extends Controller
         }
 
         $project = Project::where('user_id', $userId)->findOrFail($projectId);
+        $regenerateMode = (string) $request->input('regenerate_mode', 'overwrite');
+        if (!in_array($regenerateMode, ['overwrite', 'version'], true)) {
+            $regenerateMode = 'overwrite';
+        }
 
         $prompt = $this->buildPrompt($project);
 
@@ -88,14 +92,40 @@ class BlueprintController extends Controller
 
         AiUsage::record($userId, AiUsage::TYPE_BLUEPRINT);
 
-        $blueprint = Blueprint::updateOrCreate(
-            ['project_id' => $project->id],
-            [
-                'content' => $content,
-                'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
+        $modelName = (string) config('services.openai.model', 'gpt-4.1-mini');
+        $current = Blueprint::where('project_id', $project->id)
+            ->where('is_current', true)
+            ->latest('id')
+            ->first();
+
+        if (!$current) {
+            $nextVersion = 1;
+            $blueprint = Blueprint::create([
+                'project_id' => $project->id,
+                'version' => $nextVersion,
+                'is_current' => true,
+                'model' => $modelName,
                 'token_used' => $ai->getLastTotalTokens(),
-            ]
-        );
+            ]);
+        } elseif ($regenerateMode === 'version') {
+            $nextVersion = ((int) Blueprint::where('project_id', $project->id)->max('version')) + 1;
+            Blueprint::where('project_id', $project->id)->update(['is_current' => false]);
+            $blueprint = Blueprint::create([
+                'project_id' => $project->id,
+                'version' => $nextVersion,
+                'is_current' => true,
+                'model' => $modelName,
+                'token_used' => $ai->getLastTotalTokens(),
+            ]);
+        } else {
+            $current->update([
+                'model' => $modelName,
+                'token_used' => $ai->getLastTotalTokens(),
+                'is_current' => true,
+            ]);
+            $blueprint = $current->fresh();
+        }
+        $this->syncSections($blueprint, $content);
 
         $project->update([
             'status' => 'generated'
@@ -105,9 +135,11 @@ class BlueprintController extends Controller
             'request_id' => $requestId,
             'user_id' => $userId,
             'project_id' => $project->id,
-            'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
+            'model' => $modelName,
             'duration_ms' => (int) round((microtime(true) - $start) * 1000),
             'content_chars' => strlen($content),
+            'regenerate_mode' => $regenerateMode,
+            'version' => (int) ($blueprint->version ?? 1),
         ]);
 
         return response()->json([
@@ -171,7 +203,7 @@ Clearly describe the real-world problem.
 List and briefly describe user types.
 
 ## 5. Key Features
-Provide 8–10 specific and practical features with proper explanations.
+Provide at least 8–10 specific and practical features with proper explanations. Provide the feature lists as much depending on the project description.
 
 ## 6. Functional Requirements
 Provide 8–10 statements using:
@@ -185,7 +217,20 @@ security, performance, scalability, reliability, usability, availability
 Provide 5–6 user stories:
 "As a [user], I want [goal], so that [benefit]"
 
-## 9. Recommended Tech Stack
+## 9. Use-Case Diagram
+Provide a clear Mermaid use-case style diagram that shows:
+- 2–4 key actors
+- 6–10 core use cases
+- meaningful links between actors and use cases
+
+Return this section in Mermaid format only, for example:
+```mermaid
+flowchart LR
+  U[User] --> UC1((Register/Login))
+  U --> UC2((Create Project))
+```
+
+## 10. Recommended Tech Stack
 Suggest:
 - Frontend
 - Backend
@@ -196,7 +241,7 @@ Suggest:
 
 Briefly justify key choices.
 
-## 10. Database Design
+## 11. Database Design
 Return this section as a markdown table only (no bullet list) using exactly these columns:
 | Table Name | Key Columns | Relationships |
 
@@ -206,13 +251,13 @@ Rules for this table:
 - In "Relationships", clearly state foreign key links (e.g., "project_id -> projects.id")
 - Keep each row concise and implementation-ready
 
-## 11. Risk Analysis
+## 12. Risk Analysis
 List 4–5 realistic risks with mitigation strategies.
 
-## 12. Future Enhancements
+## 13. Future Enhancements
 List 4–5 meaningful improvements.
 
-## 13. Flow Chart
+## 14. Flow Chart
 Provide a clear markdown flow chart in Mermaid format only, using this structure:
 ```mermaid
 flowchart TD
@@ -251,10 +296,72 @@ PROMPT;
             ], 404);
         }
 
+        $blueprint->load('sections');
+
         return response()->json([
             'message' => 'Blueprint retrieved successfully',
             'data' => $blueprint,
         ]);
+    }
+
+    private function syncSections(Blueprint $blueprint, string $content): void
+    {
+        $sections = $this->parseSectionsFromMarkdown($content);
+        $blueprint->sections()->delete();
+
+        foreach ($sections as $idx => $section) {
+            $blueprint->sections()->create([
+                'section_key' => $section['key'],
+                'title' => $section['title'],
+                'content' => $section['content'],
+                'sort_order' => $idx + 1,
+            ]);
+        }
+    }
+
+    private function parseSectionsFromMarkdown(string $content): array
+    {
+        $lines = preg_split("/\r\n|\n|\r/", $content) ?: [];
+        $sections = [];
+        $currentTitle = null;
+        $currentBody = [];
+
+        $flush = function () use (&$sections, &$currentTitle, &$currentBody): void {
+            if ($currentTitle === null) return;
+            $sections[] = [
+                'title' => $currentTitle,
+                'key' => $this->toSectionKey($currentTitle),
+                'content' => trim(implode("\n", $currentBody)),
+            ];
+        };
+
+        foreach ($lines as $line) {
+            if (preg_match('/^\s*##\s*(.+)\s*$/', (string) $line, $m)) {
+                $flush();
+                $currentTitle = trim($m[1]);
+                $currentBody = [];
+                continue;
+            }
+            if ($currentTitle !== null) {
+                $currentBody[] = $line;
+            }
+        }
+
+        $flush();
+        return $sections;
+    }
+
+    private function toSectionKey(string $title): string
+    {
+        $normalized = Str::of($title)
+            ->lower()
+            ->replaceMatches('/^\d+\s*[.)-]?\s*/', '')
+            ->replace(['&', '/'], ' ')
+            ->replaceMatches('/[^a-z0-9]+/', '_')
+            ->trim('_')
+            ->toString();
+
+        return $normalized !== '' ? $normalized : 'section_' . Str::random(6);
     }
 
     public function generateTestingStrategy(Request $request, $projectId, AIService $ai)
