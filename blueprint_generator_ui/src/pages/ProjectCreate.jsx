@@ -5,11 +5,13 @@ import { generateBlueprint } from '../api/blueprints'
 import {
   HiOutlineDocumentText,
   HiOutlineFolderOpen,
+  HiOutlineInformationCircle,
   HiOutlineSparkles,
   HiOutlineUpload,
 } from 'react-icons/hi'
 
 export default function ProjectCreate() {
+  const DESCRIPTION_MAX_LENGTH = 500
   const [activeTab, setActiveTab] = useState('form')
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
@@ -31,9 +33,12 @@ export default function ProjectCreate() {
     if (!projectName.trim()) errors.projectName = 'Project name is required'
     else if (projectName.trim().length > 255) errors.projectName = 'Max 255 characters'
     if (!description.trim()) errors.description = 'Description is required'
+    else if (description.length > DESCRIPTION_MAX_LENGTH) {
+      errors.description = `Max ${DESCRIPTION_MAX_LENGTH} characters`
+    }
     if (!targetUsers.trim()) errors.targetUsers = 'Target users is required'
     return errors
-  }, [projectName, description, targetUsers])
+  }, [projectName, description, targetUsers, DESCRIPTION_MAX_LENGTH])
 
   const isValid = Object.keys(fieldErrors).length === 0
 
@@ -115,11 +120,23 @@ export default function ProjectCreate() {
       </div>
 
       <div className="form-card">
+        <div className="project-create-method-hint">
+          <span className="muted">Choose how to generate your blueprint</span>
+          <span
+            className="project-create-tooltip-trigger"
+            title="Form: type project details manually. File Upload: upload an existing project document to extract details automatically."
+            aria-label="Generation method help"
+          >
+            <HiOutlineInformationCircle size={16} />
+          </span>
+        </div>
+
         <div className="project-create-tabs">
           <button
             type="button"
             onClick={() => setActiveTab('form')}
             className={`project-create-tab ${activeTab === 'form' ? 'active' : ''}`}
+            title="Use this if you want to manually type your project details."
           >
             <HiOutlineDocumentText size={18} />
             Form
@@ -128,6 +145,7 @@ export default function ProjectCreate() {
             type="button"
             onClick={() => setActiveTab('file')}
             className={`project-create-tab ${activeTab === 'file' ? 'active' : ''}`}
+            title="Use this if you already have a project file to upload."
           >
             <HiOutlineFolderOpen size={18} />
             File Upload
@@ -166,11 +184,15 @@ export default function ProjectCreate() {
               rows={6}
               placeholder="Describe your project idea in detail — what it does, the problem it solves, key features…"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={(e) => setDescription(e.target.value.slice(0, DESCRIPTION_MAX_LENGTH))}
               onBlur={() => setTouched((t) => ({ ...t, description: true }))}
               aria-invalid={touched.description && Boolean(fieldErrors.description)}
+              maxLength={DESCRIPTION_MAX_LENGTH}
               required
             />
+            <div className="project-create-char-count muted">
+              {description.length}/{DESCRIPTION_MAX_LENGTH}
+            </div>
             {touched.description && fieldErrors.description ? (
               <div className="field-error">{fieldErrors.description}</div>
             ) : null}

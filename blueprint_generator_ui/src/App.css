@@ -2221,6 +2221,28 @@ button:disabled {
   background: color-mix(in srgb, var(--bg) 70%, var(--card));
 }
 
+.project-create-method-hint {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.project-create-tooltip-trigger {
+  display: inline-flex;
+  align-items: center;
+  color: color-mix(in srgb, var(--slate) 75%, transparent);
+  cursor: help;
+}
+
+.project-create-char-count {
+  margin-top: 6px;
+  font-size: 12px;
+  text-align: right;
+}
+
 .project-create-tab {
   border: 1px solid transparent;
   background: transparent;
