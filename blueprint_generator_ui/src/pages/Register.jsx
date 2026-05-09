@@ -23,7 +23,7 @@ function getApiError(err, fallback) {
 }
 
 export default function Register() {
-  const { register, guestLogin } = useAuth()
+  const { register} = useAuth()
   const location = useLocation()
   const from = useMemo(() => location.state?.from ?? '/projects', [location.state])
   const [name, setName] = useState('')
@@ -83,7 +83,15 @@ export default function Register() {
   }
 
   return (
-    <div className="auth-page">
+    <div className="landing-page" style={{ height: '100svh', overflow: 'hidden' }}>
+      <header className="landing-header">
+        <button className="landing-brand" type="button" onClick={() => navigate('/')}>
+          <img className="landing-logo" src="/logo.png" alt="" />
+          <span className="landing-brand-name">Blueprint Generator</span>
+        </button>
+      </header>
+
+      <main className="landing-main" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', height: 'calc(100svh - 70px)', paddingTop: '32px', overflow: 'auto' }}>
       <div className="auth-card">
         <div className="auth-subtitle">Please enter your details</div>
         <div className="auth-title">Create Your Account</div>
@@ -190,7 +198,7 @@ export default function Register() {
         </form>
 
         
-        <div className="divider">or</div>
+        {/* <div className="divider">or</div>
         
         <button 
           type="button" 
@@ -214,12 +222,13 @@ export default function Register() {
           }}
         >
           Continue as Guest
-        </button>
+        </button> */}
 
         <div className="auth-footer">
           Already have an account? <Link to="/login">Sign in</Link>
         </div>
       </div>
-    </div>
+  </main>
+</div>
   )
 }

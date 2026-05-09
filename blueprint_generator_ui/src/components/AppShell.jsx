@@ -7,6 +7,7 @@ import {
   HiOutlineCode, 
   HiOutlineDatabase, 
   HiOutlineCalendar,
+  HiOutlineClipboardCheck,
   HiOutlineCog,
   HiOutlineLogout
 } from 'react-icons/hi'
@@ -78,6 +79,16 @@ export default function AppShell() {
             }}
           >
             <HiOutlineCalendar size={19} /> Planning
+          </NavLink>
+          <NavLink
+            end
+            to={onProjectDetail ? `/projects/${projectId}/testing` : '#'}
+            className={({ isActive }) => `side-link ${isActive && onProjectDetail ? 'active' : ''} ${onProjectDetail ? '' : 'disabled'}`}
+            onClick={(e) => {
+              if (!onProjectDetail) e.preventDefault()
+            }}
+          >
+            <HiOutlineClipboardCheck size={19} /> Testing Strategy
           </NavLink>
         </nav>
 

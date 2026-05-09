@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DevelopmentPlanController;
 use App\Http\Controllers\Api\GuestController;
 use App\Http\Controllers\Api\PdfController;
 use App\Http\Controllers\Api\ProjectController;
+use App\Http\Controllers\Api\ProjectUploadController;
 use App\Http\Controllers\Api\SettingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -34,9 +35,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/projects/{id}', [ProjectController::class, 'show']);
     Route::put('/projects/{id}', [ProjectController::class, 'update']);
     Route::delete('/projects/{id}', [ProjectController::class, 'destroy']);
+    Route::post('/projects/upload', [ProjectUploadController::class, 'uploadAndGenerate']);
 
     // Blueprint Generation Routes
     Route::post('/projects/{id}/generate', [BlueprintController::class, 'generate']);
+    Route::post('/projects/{id}/generate-testing-strategy', [BlueprintController::class, 'generateTestingStrategy']);
+    // Testing strategies (structured test cases)
+    Route::get('/projects/{id}/testing-strategies', [\App\Http\Controllers\Api\TestingStrategyController::class, 'index']);
+    Route::post('/projects/{id}/testing-strategies/generate', [\App\Http\Controllers\Api\TestingStrategyController::class, 'generate']);
     Route::get('/projects/{id}/blueprint', [BlueprintController::class, 'show']);
     Route::get('/projects/{id}/export-pdf', [PdfController::class, 'export']);
 

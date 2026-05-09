@@ -5,168 +5,121 @@
 
 <style>
     @page {
-        /* Keep top/bottom the same, reduce left/right */
-        margin: 64px 18px 44px 18px;
-
+        margin: 80px 50px 60px 50px;
         @bottom-right {
-            content: "Page " counter(page) " / " counter(pages);
-            font-size: 10px;
-            color: #6b7280;
-            padding-right: 0;
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 9px;
+            color: #64748b;
         }
     }
 
     :root {
-        --accent: #6366f1;
-        --text: #1f2937;
-        --muted: #6b7280;
-        --paper: #ffffff;
+        --brand: #2563eb;    /* Professional Blue */
+        --slate: #0f172a;    /* Deep Navy Header */
+        --text: #334155;     /* Slate Gray Text */
+        --muted: #64748b;
+        --border: #e2e8f0;
+        --bg-soft: #f8fafc;
     }
 
     body {
         margin: 0;
-        font-family: DejaVu Sans, sans-serif;
-        font-size: 12px;
+        font-family: 'Helvetica', 'Arial', sans-serif; /* Cleaner than DejaVu */
+        font-size: 11px; /* Slightly smaller is more professional */
         color: var(--text);
-        line-height: 1.7;
-        background: var(--paper);
+        line-height: 1.6;
     }
 
-    /* Header */
-    header {
-        position: fixed;
-        top: -52px;
-        left: 0;
-        right: 0;
-        height: 60px;
-        border-bottom: 1px solid #ddd;
-    }
-
-    .header-table {
-        width: 100%;
-    }
-
-    .header-logo {
-        width: 90px;
-    }
-
-    .header-title {
-        text-align: right;
-        font-size: 16px;
-        font-weight: bold;
-        color: var(--accent);
-    }
-
-    /* Footer */
-    footer {
-        position: fixed;
-        bottom: -48px;
-        left: 0;
-        right: 0;
-        height: 45px;
-        border-top: 1px solid #e5e7eb;
-        font-size: 10px;
-        color: var(--muted);
-        padding-top: 8px;
-        line-height: 1.5;
-    }
-
-    .footer-left {
-        float: left;
-    }
-
-    .footer-right {
-        float: right;
-        text-align: right;
-    }
-
-    /* Main content */
-    .page {
-        padding: 0;
-        text-align: left;
-    }
-
+    /* Cover Page Improvements */
     .cover {
-        margin: -95px -45px 0 -45px;
-    }
-
-    .cover-banner {
-        background: var(--accent);
-        color: #fff;
-        padding: 30px;
+        margin: -80px -50px 40px -50px;
+        background: var(--bg-soft);
+        padding: 60px 50px;
+        border-bottom: 4px solid var(--brand);
     }
 
     .cover-title {
-        font-size: 38px;
+        font-size: 32px;
         font-weight: 800;
-        margin: 0 0 10px 0;
+        color: var(--slate);
+        margin: 0;
+        letter-spacing: -0.02em;
     }
 
     .cover-project {
-        font-size: 16px;
-        margin: 0;
+        font-size: 18px;
+        color: var(--brand);
+        font-weight: 600;
+        margin-top: 5px;
     }
 
-    .cover-meta {
-        padding: 14px 40px 0;
+    /* Technical Info Grid */
+    .meta-grid {
+        width: 100%;
+        margin-top: 30px;
+        border-top: 1px solid var(--border);
+        padding-top: 20px;
+    }
+
+    .meta-item {
+        font-size: 10px;
         color: var(--muted);
-        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
     }
 
+    /* Section Styling */
     .section {
-        margin-top: 12px;
-        page-break-inside: auto;
-    }
-
-    .section-rule {
-        height: 2px;
-        background: var(--accent);
-        margin-bottom: 8px;
+        margin-top: 25px;
+        page-break-inside: avoid; /* Prevents splitting titles from content */
     }
 
     .section-title {
-        font-size: 14px;
-        font-weight: bold;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--slate);
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+    }
+
+    /* The "Blueprint" Rule: Thin and precise */
+    .section-rule {
+        height: 1px;
+        background: var(--brand);
+        width: 40px;
         margin-bottom: 8px;
-        text-align: left;
     }
 
-    p {
-        margin: 0 0 6px 0;
+    /* Content Styling */
+    p { margin: 0 0 10px 0; }
+
+    .bullets, ol {
+        margin: 0 0 15px 0;
+        padding-left: 20px;
     }
 
-    .bullets {
-        margin: 0;
-        padding-left: 14px;
+    li { margin-bottom: 6px; }
+
+    /* The technical "Box" for generated plans */
+    .data-block {
+        background: var(--bg-soft);
+        border: 1px solid var(--border);
+        padding: 15px;
+        border-radius: 4px;
     }
 
-    .bullets li {
-        margin-bottom: 4px;
-    }
-
-    .bullets li::marker {
-        color: var(--accent);
-    }
-
-    /* Proper Numbered Lists for AI Output */
-    ol {
-        margin: 0 0 6px 0;
-        padding-left: 18px;
-    }
-
-    ol li {
-        margin-bottom: 4px;
-        padding-left: 4px;
-        line-height: 1.7;
-    }
-
-    ol li::marker {
-        color: var(--accent);
-        font-weight: 500;
-    }
-
-    .page-break {
-        page-break-after: always;
+    footer {
+        position: fixed;
+        bottom: -40px;
+        left: 0;
+        right: 0;
+        border-top: 1px solid var(--border);
+        padding-top: 10px;
+        font-size: 9px;
+        color: var(--muted);
     }
 </style>
 </head>
@@ -286,11 +239,15 @@
 
 <!-- Cover -->
 <div class="cover">
-    <div class="cover-banner">
-        <div class="cover-title">Project Blueprint Report</div>
-        <p class="cover-project">{{ $project->project_name ?? 'Project' }}</p>
-    </div>
-    <div class="cover-meta">Generated on {{ now()->format('F d, Y') }}</div>
+    <div class="cover-title">PROJECT SPECIFICATION</div>
+    <div class="cover-project">{{ $project->project_name ?? 'Untitled Project' }}</div>
+
+    <table class="meta-grid">
+        <tr>
+            <td class="meta-item">Document ID: <strong>BP-{{ date('Ymd') }}-{{ $project->id }}</strong></td>
+            <td class="meta-item" style="text-align: right;">Generated: <strong>{{ now()->format('F d, Y') }}</strong></td>
+        </tr>
+    </table>
 </div>
 
 <div class="page-break"></div>
@@ -302,36 +259,37 @@
             <div class="section-rule"></div>
             <div class="section-title">{{ $section['title'] }}</div>
 
-            @php $blocks = $renderBlocks($section['lines']); @endphp
-
-            @foreach ($blocks as $b)
-                @if ($b['type'] === 'p')
-                    <p>{{ $b['text'] }}</p>
-                @elseif ($b['type'] === 'ul')
-                    <ul class="bullets">
-                        @foreach ($b['items'] as $it)
-                            <li>{{ $it }}</li>
-                        @endforeach
-                    </ul>
-                @elseif ($b['type'] === 'ol')
-                    <ol>
-                        @foreach ($b['items'] as $it)
-                            <li>{{ $it }}</li>
-                        @endforeach
-                    </ol>
-                @endif
-            @endforeach
+            <div class="data-block"> <!-- Wraps AI content in a professional 'vessel' -->
+                @php $blocks = $renderBlocks($section['lines']); @endphp
+                @foreach ($blocks as $b)
+                    @if ($b['type'] === 'p')
+                        <p>{{ $b['text'] }}</p>
+                    @elseif ($b['type'] === 'ul')
+                        <ul class="bullets">
+                            @foreach ($b['items'] as $it)
+                                <li>{{ $it }}</li>
+                            @endforeach
+                        </ul>
+                    @elseif ($b['type'] === 'ol')
+                        <ol>
+                            @foreach ($b['items'] as $it)
+                                <li>{{ $it }}</li>
+                            @endforeach
+                        </ol>
+                    @endif
+                @endforeach
+            </div>
         </div>
     @endforeach
 </div>
 
 <footer>
-    <div class="footer-left">
-        Project Blueprint Generator
-    </div>
-    <div class="footer-right">
-        Generated: {{ now()->format('d M Y') }}
-    </div>
+    <table style="width: 100%">
+        <tr>
+            <td>Architectural Blueprint Generator | Confidential</td>
+            <td style="text-align: right;">v1.0.4</td>
+        </tr>
+    </table>
 </footer>
 
 </body>

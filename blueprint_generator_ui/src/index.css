@@ -1,12 +1,13 @@
 :root {
---brand: #4f46e5; 
+--brand: #4f46e5;
+--glow: #06b6d4;
 --slate: #334155; 
 --bg: #fafafa; 
 --card: #ffffff; 
 --accent: #cbd5e1; 
 --success: #059669; 
 --warning: #d97706;
---neutral: #64748b;
+--neutral: #64748b; 
 
 --bg-main: #f8fafc;
   --bg-grid: #e2e8f0; /* Subtle grid line color */
@@ -80,10 +81,7 @@ a {
 #root {
   width: 100%;
   margin: 0;
-  text-align: center;
   min-height: 100svh;
-  display: flex;
-  flex-direction: column;
   box-sizing: border-box;
 }
 

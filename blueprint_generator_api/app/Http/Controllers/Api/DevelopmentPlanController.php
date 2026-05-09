@@ -121,7 +121,7 @@ class DevelopmentPlanController extends Controller
         }
         $userId = (int) $user->id;
 
-        if (AiUsage::countForToday($userId) >= 5) {
+        if (AiUsage::countForToday($userId) >= 10) {
             return response()->json([
                 'message' => 'Daily AI limit reached',
                 'request_id' => $requestId,

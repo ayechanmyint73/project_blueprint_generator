@@ -34,7 +34,7 @@ export default function Login() {
 
   const navigate = useNavigate()
   const location = useLocation()
-  const from = useMemo(() => location.state?.from ?? '/projects', [location.state])
+  const from = useMemo(() => location.state?.from ?? '/dashboard', [location.state])
 
   const fieldErrors = useMemo(() => {
     const errors = {}
@@ -64,83 +64,92 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
-        <div className="auth-subtitle">Please enter your details</div>
-        <div className="auth-title">Welcome back</div>
+    <div className="landing-page" style={{ height: '100svh', overflow: 'hidden' }}>
+      <header className="landing-header">
+        <button className="landing-brand" type="button" onClick={() => navigate('/')}>
+          <img className="landing-logo" src="/logo.png" alt="" />
+          <span className="landing-brand-name">Blueprint Generator</span>
+        </button>
+      </header>
 
-        <form className="auth-form" onSubmit={onSubmit} noValidate>
-          <div>
-            <label className="sr-only" htmlFor="login-email">
-              Email address
-            </label>
-            <input
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, email: true }))}
-              aria-invalid={touched.email && Boolean(fieldErrors.email)}
-              required
-            />
-            {touched.email && fieldErrors.email ? (
-              <div className="field-error">{fieldErrors.email}</div>
-            ) : null}
-          </div>
+      <main className="landing-main" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', height: 'calc(100svh - 70px)', paddingTop: '32px', overflow: 'auto' }}>
+        <div className="auth-card">
+          <div className="auth-subtitle">Please enter your details</div>
+          <div className="auth-title">Welcome back</div>
 
-          <div>
-            <label className="sr-only" htmlFor="login-password">
-              Password
-            </label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onBlur={() => setTouched((t) => ({ ...t, password: true }))}
-              aria-invalid={touched.password && Boolean(fieldErrors.password)}
-              required
-            />
-            {touched.password && fieldErrors.password ? (
-              <div className="field-error">{fieldErrors.password}</div>
-            ) : null}
-          </div>
-
-          <div className="auth-actions">
-            <label className="checkbox">
+          <form className="auth-form" onSubmit={onSubmit} noValidate>
+            <div>
+              <label className="sr-only" htmlFor="login-email">
+                Email address
+              </label>
               <input
-                type="checkbox"
-                checked={remember}
-                onChange={(e) => setRemember(e.target.checked)}
+                id="login-email"
+                type="email"
+                autoComplete="email"
+                placeholder="Email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, email: true }))}
+                aria-invalid={touched.email && Boolean(fieldErrors.email)}
+                required
               />
-              Remember me
-            </label>
-            <a href="#" onClick={(e) => e.preventDefault()}>
-              Forgot password
-            </a>
+              {touched.email && fieldErrors.email ? (
+                <div className="field-error">{fieldErrors.email}</div>
+              ) : null}
+            </div>
+
+            <div>
+              <label className="sr-only" htmlFor="login-password">
+                Password
+              </label>
+              <input
+                id="login-password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => setTouched((t) => ({ ...t, password: true }))}
+                aria-invalid={touched.password && Boolean(fieldErrors.password)}
+                required
+              />
+              {touched.password && fieldErrors.password ? (
+                <div className="field-error">{fieldErrors.password}</div>
+              ) : null}
+            </div>
+
+            <div className="auth-actions">
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
+                Remember me
+              </label>
+              <a href="#" onClick={(e) => e.preventDefault()}>
+                Forgot password
+              </a>
+            </div>
+
+            {error ? <div className="error" role="alert">{error}</div> : null}
+
+            <button type="submit" disabled={submitting}>
+              {submitting ? <HiOutlineRefresh className="spin" size={18} /> : <HiOutlineLogin size={18} />}
+              {submitting ? 'Signing in…' : 'Sign in'}
+            </button>
+          </form>
+
+          {/* <div className="divider">or</div>
+          <button type="button" className="secondary-btn" disabled>
+            Sign in with Google (next)
+          </button> */}
+
+          <div className="auth-footer">
+            Don't have an account? <Link to="/register">Sign up</Link>
           </div>
-
-          {error ? <div className="error" role="alert">{error}</div> : null}
-
-          <button type="submit" disabled={submitting}>
-            {submitting ? <HiOutlineRefresh className="spin" size={18} /> : <HiOutlineLogin size={18} />}
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </button>
-        </form>
-
-        {/* <div className="divider">or</div>
-        <button type="button" className="secondary-btn" disabled>
-          Sign in with Google (next)
-        </button> */}
-
-        <div className="auth-footer">
-          Don't have an account? <Link to="/register">Sign up</Link>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

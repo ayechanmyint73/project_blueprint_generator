@@ -36,7 +36,7 @@ class BlueprintController extends Controller
         }
         $userId = (int) $user->id;
 
-        if (AiUsage::countForToday($userId) >= 5) {
+        if (AiUsage::countForToday($userId) >= 10) {
             return response()->json([
                 'message' => 'Daily AI limit reached',
                 'request_id' => $requestId,
@@ -132,6 +132,7 @@ The blueprint must be:
 - Practical and realistic
 - Suitable for final year academic projects and real-world applications
 - Clear, concise, and well-structured
+- Do not include any extra word or content that is not directly relevant to the project idea
 
 -----------------------------------
 USER PROJECT IDEA:
@@ -170,7 +171,7 @@ Clearly describe the real-world problem.
 List and briefly describe user types.
 
 ## 5. Key Features
-Provide 8–10 specific and practical features.
+Provide 8–10 specific and practical features with proper explanations.
 
 ## 6. Functional Requirements
 Provide 8–10 statements using:
@@ -196,16 +197,27 @@ Suggest:
 Briefly justify key choices.
 
 ## 10. Database Design
-List core tables with:
-- Table name
-- Key columns
-- Relationships (brief)
+Return this section as a markdown table only (no bullet list) using exactly these columns:
+| Table Name | Key Columns | Relationships |
+
+Rules for this table:
+- Include 5–8 core tables
+- Use specific table names and realistic column names
+- In "Relationships", clearly state foreign key links (e.g., "project_id -> projects.id")
+- Keep each row concise and implementation-ready
 
 ## 11. Risk Analysis
 List 4–5 realistic risks with mitigation strategies.
 
 ## 12. Future Enhancements
 List 4–5 meaningful improvements.
+
+## 13. Flow Chart
+Provide a clear markdown flow chart in Mermaid format only, using this structure:
+```mermaid
+flowchart TD
+  A[Start] --> B[...]
+```
 
 -----------------------------------
 
@@ -242,6 +254,89 @@ PROMPT;
         return response()->json([
             'message' => 'Blueprint retrieved successfully',
             'data' => $blueprint,
+        ]);
+    }
+
+    public function generateTestingStrategy(Request $request, $projectId, AIService $ai)
+    {
+        $requestId = (string) (request()->header('X-Request-Id') ?: Str::uuid());
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'message' => 'Unauthenticated',
+                'request_id' => $requestId,
+            ], 401);
+        }
+
+        $userId = (int) $user->id;
+        if (AiUsage::countForToday($userId) >= 10) {
+            return response()->json([
+                'message' => 'Daily AI limit reached',
+                'request_id' => $requestId,
+            ], 403);
+        }
+
+        $project = Project::where('user_id', $userId)->findOrFail($projectId);
+
+        $prompt = <<<PROMPT
+You are a senior QA lead.
+
+Generate a practical testing strategy for this software project.
+
+Project Name:
+{$project->project_name}
+
+Project Description:
+{$project->description}
+
+Target Users:
+{$project->target_users}
+
+Return only one markdown table with exactly these columns:
+| Test Type | Scope | Sample Test Cases | Tools |
+
+Rules:
+- Provide 8-12 rows
+- Include unit, integration, API, UI, security, performance, and UAT coverage
+- Keep test cases concrete and implementation-ready
+- Do not include explanations outside the table
+PROMPT;
+
+        $content = $ai->chat(
+            [
+                [
+                    'role' => 'system',
+                    'content' => 'You produce concise, implementation-ready QA outputs.',
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt,
+                ],
+            ],
+            [
+                'model' => 'gpt-4.1-mini',
+                'temperature' => 0.5,
+                'max_tokens' => 900,
+                'timeout' => 30,
+            ]
+        );
+
+        if (!is_string($content) || trim($content) === '') {
+            return response()->json([
+                'message' => $ai->getLastError() ?? 'Failed to generate testing strategy.',
+                'request_id' => $requestId,
+            ], 502);
+        }
+
+        AiUsage::record($userId, AiUsage::TYPE_TESTING_STRATEGY);
+
+        return response()->json([
+            'message' => 'Testing strategy generated successfully',
+            'data' => [
+                'content' => $content,
+                'model' => 'gpt-4.1-mini',
+            ],
+            'request_id' => $requestId,
         ]);
     }
 }

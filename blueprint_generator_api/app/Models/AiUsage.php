@@ -9,6 +9,7 @@ class AiUsage extends Model
 {
     public const TYPE_BLUEPRINT = 'blueprint';
     public const TYPE_ROADMAP = 'roadmap';
+    public const TYPE_TESTING_STRATEGY = 'testing_strategy';
 
     public $timestamps = false;
 
@@ -37,4 +38,3 @@ class AiUsage extends Model
         ]);
     }
 }
-

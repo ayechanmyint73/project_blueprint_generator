@@ -49,12 +49,6 @@ export default function Dashboard() {
       const rawProjects = await listProjects()
       const projects = Array.isArray(rawProjects) ? rawProjects.map(normalizeProject) : []
 
-      // Requirement: if user has more than 3 projects, redirect to Projects page.
-      if (projects.length > 3) {
-        navigate('/projects', { replace: true })
-        return
-      }
-
       const sortedRecent = [...projects].sort((a, b) => {
         const ad = a?.updatedAt ? new Date(a.updatedAt) : 0
         const bd = b?.updatedAt ? new Date(b.updatedAt) : 0
@@ -166,6 +160,14 @@ export default function Dashboard() {
             <div className="dash-empty-sub muted">Create your first project to generate a blueprint.</div>
           </div>
         ) : null}
+
+        {stats.total > 3 && (
+          <div style={{ marginTop: '16px', textAlign: 'center' }}>
+            <Link to="/projects" style={{ color: 'var(--brand-color)', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>
+              View all {stats.total} projects →
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   )

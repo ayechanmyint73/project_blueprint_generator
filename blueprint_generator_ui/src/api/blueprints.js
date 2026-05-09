@@ -16,3 +16,18 @@ export async function exportBlueprintPdf(projectId) {
   })
   return res
 }
+
+export async function generateTestingStrategy(projectId) {
+  const res = await http.post(`/api/projects/${projectId}/generate-testing-strategy`)
+  return res.data
+}
+
+export async function getTestingStrategies(projectId) {
+  const res = await http.get(`/api/projects/${projectId}/testing-strategies`)
+  return res.data
+}
+
+export async function generateAndSaveTestingStrategies(projectId) {
+  const res = await http.post(`/api/projects/${projectId}/testing-strategies/generate`)
+  return res.data
+}

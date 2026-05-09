@@ -29,9 +29,32 @@ class AIService
 
     public function generate(string $prompt): ?string
     {
+        return $this->chat(
+            [
+                [
+                    'role' => 'system',
+                    'content' => 'You are a professional software architect who generates structured and practical outputs.',
+                ],
+                [
+                    'role' => 'user',
+                    'content' => $prompt,
+                ],
+            ],
+            [
+                'temperature' => 0.7,
+                'max_tokens' => 2000,
+            ]
+        );
+    }
+
+    public function chat(array $messages, array $options = []): ?string
+    {
         $apiKey = (string) config('services.openai.api_key', '');
-        $model = (string) config('services.openai.model', 'gpt-4.1-mini');
+        $model = (string) ($options['model'] ?? config('services.openai.model', 'gpt-4.1-mini'));
         $url = (string) config('services.openai.url', 'https://api.openai.com/v1/chat/completions');
+        $timeout = (int) ($options['timeout'] ?? 30);
+        $temperature = (float) ($options['temperature'] ?? 0.7);
+        $maxTokens = (int) ($options['max_tokens'] ?? 2000);
 
         $this->lastTotalTokens = null;
         $this->lastHttpStatus = null;
@@ -44,24 +67,15 @@ class AIService
         }
 
         try {
-            $response = Http::timeout(90)
+            $response = Http::timeout($timeout)
                 ->retry(1, 250)
                 ->withToken($apiKey)
                 ->acceptJson()
                 ->post($url, [
                     'model' => $model,
-                    'messages' => [
-                        [
-                            'role' => 'system',
-                            'content' => 'You are a professional software architect who generates structured and practical outputs.',
-                        ],
-                        [
-                            'role' => 'user',
-                            'content' => $prompt,
-                        ],
-                    ],
-                    'temperature' => 0.7,
-                    'max_tokens' => 2000,
+                    'messages' => $messages,
+                    'temperature' => $temperature,
+                    'max_tokens' => $maxTokens,
                 ]);
         } catch (Throwable $e) {
             $this->lastError = 'AI provider request error';

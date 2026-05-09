@@ -1,15 +1,20 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { createProject } from '../api/projects'
+import { createProject, uploadProjectFile } from '../api/projects'
 import { generateBlueprint } from '../api/blueprints'
 import {
+  HiOutlineDocumentText,
+  HiOutlineFolderOpen,
   HiOutlineSparkles,
+  HiOutlineUpload,
 } from 'react-icons/hi'
 
 export default function ProjectCreate() {
+  const [activeTab, setActiveTab] = useState('form')
   const [projectName, setProjectName] = useState('')
   const [description, setDescription] = useState('')
   const [targetUsers, setTargetUsers] = useState('')
+  const [uploadedFile, setUploadedFile] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [modal, setModal] = useState({ open: false, projectId: null, error: '' })
   const [error, setError] = useState('')
@@ -48,10 +53,33 @@ export default function ProjectCreate() {
   async function onSubmit(e) {
     e.preventDefault()
     setError('')
-    setTouched({ projectName: true, description: true, targetUsers: true })
-    if (!isValid) return
+
+    if (activeTab === 'form') {
+      setTouched({ projectName: true, description: true, targetUsers: true })
+      if (!isValid) return
+    }
+
+    if (activeTab === 'file' && !uploadedFile) {
+      setError('Please upload a file first.')
+      return
+    }
+
     setSubmitting(true)
+
     try {
+      if (activeTab === 'file') {
+        const data = await uploadProjectFile(uploadedFile)
+        const id = data?.project?.id
+        if (id) {
+          navigate(`/projects/${id}?view=overview`, { replace: true })
+          return
+        }
+
+        setSubmitting(false)
+        navigate('/projects', { replace: true })
+        return
+      }
+
       const data = await createProject({
         project_name: projectName.trim(),
         description: description.trim(),
@@ -87,11 +115,30 @@ export default function ProjectCreate() {
       </div>
 
       <div className="form-card">
-        <div className="form-card-title">
-          Project Details
+        <div className="project-create-tabs">
+          <button
+            type="button"
+            onClick={() => setActiveTab('form')}
+            className={`project-create-tab ${activeTab === 'form' ? 'active' : ''}`}
+          >
+            <HiOutlineDocumentText size={18} />
+            Form
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('file')}
+            className={`project-create-tab ${activeTab === 'file' ? 'active' : ''}`}
+          >
+            <HiOutlineFolderOpen size={18} />
+            File Upload
+          </button>
         </div>
 
         <form className="form" onSubmit={onSubmit} noValidate>
+
+          {/* Form Tab Content */}
+          {activeTab === 'form' && (
+            <>
           <div>
             <label className="label" htmlFor="project-name">
               Project title
@@ -146,6 +193,62 @@ export default function ProjectCreate() {
                 <div className="field-error">{fieldErrors.targetUsers}</div>
               ) : null}
             </div>
+            </>
+          )}
+
+          {/* File Upload Tab Content */}
+          {activeTab === 'file' && (
+            <div className="upload-panel">
+              <label className="label">Upload Project Document</label>
+              <div
+                className="upload-dropzone"
+                onClick={() => document.getElementById('file-upload').click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (e.dataTransfer.files.length) {
+                    setUploadedFile(e.dataTransfer.files[0])
+                  }
+                }}
+              >
+                <input
+                  id="file-upload"
+                  type="file"
+                  style={{ display: 'none' }}
+                  accept=".pdf,.docx,.txt"
+                  onChange={(e) => setUploadedFile(e.target.files[0])}
+                />
+                {uploadedFile ? (
+                  <div className="upload-file-picked">
+                    <HiOutlineDocumentText size={28} />
+                    <div className="upload-file-name">{uploadedFile.name}</div>
+                    <div className="upload-file-size">
+                      {(uploadedFile.size / 1024).toFixed(1)} KB
+                    </div>
+                  </div>
+                ) : (
+                  <div className="upload-file-empty">
+                    <div className="upload-icon-wrap">
+                      <HiOutlineUpload size={24} />
+                    </div>
+                    <div className="upload-title">Click to upload or drag and drop</div>
+                    <div className="upload-subtitle">
+                      Supports PDF, DOCX, TXT files (max 5MB)
+                    </div>
+                  </div>
+                )}
+              </div>
+              {uploadedFile && (
+                <button
+                  type="button"
+                  className="upload-remove-btn"
+                  onClick={() => setUploadedFile(null)}
+                >
+                  Remove file
+                </button>
+              )}
+            </div>
+          )}
 
           {error ? (
             <pre className="error" role="alert" style={{ whiteSpace: 'pre-wrap' }}>
@@ -154,7 +257,14 @@ export default function ProjectCreate() {
           ) : null}
 
           <div className="form-actions">
-            <button type="submit" disabled={submitting || !isValid}>
+            <button 
+              type="submit" 
+              disabled={
+                submitting || 
+                (activeTab === 'form' && !isValid) || 
+                (activeTab === 'file' && !uploadedFile)
+              }
+            >
               <HiOutlineSparkles size={18} />
               {submitting ? 'Generating…' : 'Generate Blueprint'}
             </button>
@@ -183,8 +293,8 @@ export default function ProjectCreate() {
                 <div className="modal-status">
                   <div className="spinner-large" aria-hidden="true" />
                   <div>
-                    <div style={{ fontWeight: 750, color: 'var(--text-h)' }}>Calling AI provider…</div>
-                    <div className="muted" style={{ fontSize: 12 }}>
+                    <div className="project-create-modal-title">Calling AI provider…</div>
+                    <div className="muted project-create-modal-subtitle">
                       Creating sections, requirements, and roadmap
                     </div>
                   </div>

@@ -16,6 +16,7 @@ import {
   HiOutlineShieldExclamation,
   HiOutlineLightningBolt,
   HiOutlineArrowLeft,
+  HiOutlineCode,
 } from 'react-icons/hi'
 
 function formatDate(value) {
@@ -31,6 +32,7 @@ const VIEWS = [
   { id: 'requirements', label: 'Requirements', icon: HiOutlineClipboardList },
   { id: 'userstories', label: 'User Stories', icon: HiOutlineUsers },
   { id: 'techdata', label: 'Tech & Data', icon: HiOutlineCube },
+  { id: 'flowchart', label: 'Flow Chart', icon: HiOutlineCode },
   { id: 'risks', label: 'Risk Analysis', icon: HiOutlineShieldExclamation },
   { id: 'future', label: 'Future Improvements', icon: HiOutlineLightBulb },
 ]
@@ -70,6 +72,8 @@ function getSectionCategory(title) {
   if (
     t.includes('recommended tech stack') ||
     t.includes('tech stack') ||
+    t.includes('relationship') ||
+    t.includes('relationships') ||
     t.includes('database schema') ||
     t.includes('tables') ||
     t.includes('table') ||
@@ -83,6 +87,8 @@ function getSectionCategory(title) {
   ) {
     return 'techdata'
   }
+  if (t.includes('flow chart') || t.includes('flowchart') || t.includes('process flow')) return 'flowchart'
+  if (t.includes('testing strategy') || t.includes('test strategy')) return 'techdata'
   if (t.includes('risk analysis') || t.includes('risks')) return 'risks'
   if (t.includes('future enhancements') || t.includes('future improvements') || t.includes('enhancements')) return 'future'
 
@@ -121,14 +127,38 @@ function parseBlueprintContent(content) {
     return true
   }
 
+  function getLooseHeaderTitle(line) {
+    const raw = String(line ?? '')
+    const trimmed = raw.trim()
+    if (!trimmed) return null
+
+    // Markdown headers: allow optional space after # (e.g. "##Title")
+    const md = trimmed.match(/^#{1,6}\s*(.+)$/)
+    if (md?.[1]) return md[1].trim()
+
+    // Bold-only header line: **Key Features** or **5. Key Features**
+    const bold = trimmed.match(/^\*\*(.+)\*\*$/)
+    if (bold?.[1]) return bold[1].trim()
+
+    // Short label style: "Key Features:" / "5. Key Features:"
+    const label = trimmed.match(/^(.+):$/)
+    if (label?.[1] && label[1].trim().length <= 72) {
+      const candidate = label[1].trim()
+      // avoid capturing long requirement statements ending with colon
+      if (!candidate.toLowerCase().startsWith('the system')) return candidate
+    }
+
+    return null
+  }
+
   for (const line of lines) {
-    // Check for section headers (## or ### or numbered sections)
-    const mdHeaderMatch = line.match(/^(#{1,3})\s+(.+)$/)
+    // Check for section headers (markdown/bold/label/numbered sections)
+    const looseTitle = getLooseHeaderTitle(line)
     const numberedHeaderMatch = isNumberedHeader(line) ? line.trim().match(/^(\d+)[.)]\s+(.+)$/) : null
     
-    if (mdHeaderMatch || numberedHeaderMatch) {
+    if (looseTitle || numberedHeaderMatch) {
       flush()
-      currentSection = (mdHeaderMatch?.[2] ?? numberedHeaderMatch?.[2] ?? '').trim()
+      currentSection = (looseTitle ?? numberedHeaderMatch?.[2] ?? '').trim()
       currentContent = []
     } else {
       currentContent.push(line)
@@ -326,24 +356,13 @@ function renderDocContent(content) {
         i += 1
       }
 
-      const reqLike = items.filter((t) => /^the system must\b/i.test(String(t ?? '').trim())).length
-      const asOrdered = items.length >= 6 && reqLike >= Math.ceil(items.length * 0.6)
-      const asGrid = !asOrdered && items.length >= 6
-
+      // Always display all lists as ordered numbered format
       nodes.push(
-        asOrdered ? (
-          <ol key={`o_${key++}`} className="doc-olist doc-olist-clean">
-            {items.map((t, idx) => (
-              <li key={idx}>{renderInline(t)}</li>
-            ))}
-          </ol>
-        ) : (
-          <ul key={`u_${key++}`} className={`doc-list ${asGrid ? 'doc-list-grid' : ''}`}>
-            {items.map((t, idx) => (
-              <li key={idx}>{renderInline(t)}</li>
-            ))}
-          </ul>
-        ),
+        <ol key={`o_${key++}`} className="doc-olist doc-olist-clean">
+          {items.map((t, idx) => (
+            <li key={idx}>{renderInline(t)}</li>
+          ))}
+        </ol>
       )
       continue
     }
@@ -380,6 +399,203 @@ function renderDocContent(content) {
   }
 
   return nodes
+}
+
+function extractMermaidCode(content) {
+  const text = String(content ?? '')
+
+  // 1) Fenced code block detection (preferred)
+  const fenced = text.match(/```mermaid\s*([\s\S]*?)```/i)
+  if (fenced?.[1]) return fenced[1].trim()
+
+  // 2) Find a mermaid directive line and collect until a likely section boundary.
+  const lines = text.split('\n')
+  const directiveRe = /^\s*(flowchart|graph|sequenceDiagram|gantt|classDiagram|stateDiagram)\b/i
+  let start = -1
+  for (let i = 0; i < lines.length; i++) {
+    if (directiveRe.test(lines[i])) {
+      start = i
+      break
+    }
+  }
+
+  if (start === -1) return ''
+
+  const endBoundaryRe = /^(#{1,6}\s)|^(\d+[.)]\s)|^\s*```|^\s*\*\*/
+  const collected = []
+  for (let i = start; i < lines.length; i++) {
+    const l = lines[i]
+    // stop if we see a clear markdown section boundary (header, numbered header, fenced code start/close, bold header)
+    if (i > start && endBoundaryRe.test(l)) break
+    collected.push(l)
+  }
+
+  return collected.join('\n').trim()
+}
+
+function MermaidChart({ code }) {
+  const [svg, setSvg] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let active = true
+    async function run() {
+      if (!code) {
+        setSvg('')
+        setError('No flowchart content found.')
+        return
+      }
+
+      try {
+        let mod = null
+        try {
+          mod = await import('mermaid')
+        } catch (e1) {
+          try {
+            mod = await import('mermaid/dist/mermaid.esm.min.mjs')
+          } catch (e2) {
+            try {
+              mod = await import('mermaid/dist/mermaid.esm.mjs')
+            } catch (e3) {
+              console.error('Mermaid import failed', e1, e2, e3)
+              throw e3
+            }
+          }
+        }
+
+        const mermaid = mod?.default ?? mod
+
+        mermaid.initialize?.({
+          startOnLoad: false,
+          theme: 'default',
+          securityLevel: 'loose',
+        })
+
+        const id = `flowchart-${Math.random().toString(36).slice(2)}`
+        const rendered = await mermaid.render?.(id, code) ?? (await (mermaid.mermaidAPI?.render?.(id, code)))
+
+        // mermaid.render may return { svg } or a string containing the svg
+        const renderedSvg = rendered?.svg ?? (typeof rendered === 'string' ? rendered : '')
+        if (!renderedSvg) throw new Error('Empty render result')
+
+        if (active) {
+          setSvg(renderedSvg)
+          setError('')
+        }
+      } catch (err) {
+        if (active) {
+          setSvg('')
+          console.error('Mermaid render error:', err)
+          setError('Unable to render flowchart. See console for details.')
+        }
+      }
+    }
+
+    run()
+    return () => {
+      active = false
+    }
+  }, [code])
+
+  if (error) {
+    return <div className="error">{error}</div>
+  }
+
+  if (!svg) {
+    return <div className="muted">Rendering flowchart…</div>
+  }
+
+  async function downloadSvg() {
+    try {
+      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'flowchart.svg'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  async function downloadPng() {
+    try {
+      const svgData = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+      await new Promise((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          // try to infer size from svg, fallback to 800x600
+          const parser = new DOMParser()
+          const doc = parser.parseFromString(svg, 'image/svg+xml')
+          const svgEl = doc.documentElement
+          const widthAttr = svgEl.getAttribute('width')
+          const heightAttr = svgEl.getAttribute('height')
+          const viewBox = svgEl.getAttribute('viewBox')
+          let w = 800
+          let h = 600
+          if (widthAttr && heightAttr) {
+            w = parseInt(widthAttr, 10) || w
+            h = parseInt(heightAttr, 10) || h
+          } else if (viewBox) {
+            const parts = viewBox.split(/\s+/)
+            if (parts.length === 4) {
+              w = parseInt(parts[2], 10) || w
+              h = parseInt(parts[3], 10) || h
+            }
+          }
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')
+          ctx.fillStyle = '#fff'
+          ctx.fillRect(0, 0, w, h)
+          ctx.drawImage(img, 0, 0, w, h)
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error('Could not create PNG'))
+            const url = window.URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = 'flowchart.png'
+            document.body.appendChild(a)
+            a.click()
+            a.remove()
+            window.URL.revokeObjectURL(url)
+            resolve()
+          }, 'image/png')
+        }
+        img.onerror = (err) => reject(err)
+        img.src = svgData
+      })
+    } catch (e) {
+      // ignore
+    }
+  }
+
+  return (
+    <div>
+      <div
+        className="mermaid-actions"
+        style={{
+            paddingTop: 10,
+          marginBottom: 8,
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: 8,
+        }}
+      >
+        <button type="button" className="secondary-btn" onClick={downloadSvg}>
+          Download SVG
+        </button>
+        <button type="button" className="secondary-btn" onClick={downloadPng}>
+          Download PNG
+        </button>
+      </div>
+      <div className="mermaid-wrap" dangerouslySetInnerHTML={{ __html: svg }} />
+    </div>
+  )
 }
 
 function Section({ icon, title, children, meta }) {
@@ -551,12 +767,15 @@ export default function ProjectDetail() {
               ) : null}
               {(view === 'overview' ? overviewSections : sectionsForView).map((section, index) => {
                 const k = `${view}:${id}:${index}:${section?.title ?? ''}`
+                const mermaidCode = view === 'flowchart' ? extractMermaidCode(section.content) : ''
                 return (
                   <div key={k} className="doc-section" role="region" aria-label={section.title}>
                     <div className="doc-section-summary">
                       <span className="doc-section-title">{section.title}</span>
                     </div>
-                    <div className="doc-section-body">{renderDocContent(section.content)}</div>
+                    <div className="doc-section-body">
+                      {view === 'flowchart' ? <MermaidChart code={mermaidCode} /> : renderDocContent(section.content)}
+                    </div>
                   </div>
                 )
               })}

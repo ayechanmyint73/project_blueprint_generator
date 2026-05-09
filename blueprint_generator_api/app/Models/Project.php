@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Blueprint;
 use App\Models\DevelopmentPlan;
+use App\Models\TestingStrategy;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -30,5 +31,10 @@ class Project extends Model
     public function developmentPlan()
     {
         return $this->hasOne(DevelopmentPlan::class);
+    }
+
+    public function testingStrategies()
+    {
+        return $this->hasMany(TestingStrategy::class);
     }
 }
