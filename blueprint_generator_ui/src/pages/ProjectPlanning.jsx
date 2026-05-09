@@ -39,6 +39,16 @@ function normalizePlan(plan) {
   return { ...plan, tasks_json: { phases: [] } }
 }
 
+function formatMethodology(value) {
+  const v = String(value ?? '').trim().toLowerCase()
+  if (!v) return ''
+  if (v === 'scrum') return 'Scrum'
+  if (v === 'kanban') return 'Kanban'
+  if (v === 'waterfall') return 'Waterfall'
+  if (v === 'hybrid') return 'Hybrid'
+  return value
+}
+
 export default function ProjectPlanning() {
   const { id } = useParams()
   const [project, setProject] = useState(null)
@@ -51,6 +61,15 @@ export default function ProjectPlanning() {
   // const [aiMode, setAiMode] = useState('phases') // 'phases' | 'tasks_only'
   const [editingPhaseId, setEditingPhaseId] = useState(null)
   const [editingTask, setEditingTask] = useState(null) // { phaseId, taskId } | null
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+  const [regenModalOpen, setRegenModalOpen] = useState(false)
+  const [aiOptions, setAiOptions] = useState({
+    methodology: 'scrum',
+    developer_count: '',
+    start_date: '',
+    end_date: '',
+    generation_notes: '',
+  })
 
   const normalizedPlan = useMemo(() => normalizePlan(plan), [plan])
   const phases = useMemo(() => normalizedPlan?.tasks_json?.phases ?? [], [normalizedPlan])
@@ -92,6 +111,20 @@ export default function ProjectPlanning() {
     if (typeof progress === 'number' && !Number.isNaN(progress)) return progress
     return overall.pct
   }, [overall.pct, progress])
+
+  const hasPlanContent = useMemo(() => {
+    return phases.length > 0
+  }, [phases.length])
+
+  const planningMeta = useMemo(() => {
+    const items = []
+    const methodologyLabel = formatMethodology(plan?.methodology)
+    if (methodologyLabel) items.push(`Methodology: ${methodologyLabel}`)
+    if (plan?.developer_count) items.push(`Team: ${plan.developer_count} developer${Number(plan.developer_count) > 1 ? 's' : ''}`)
+    if (plan?.start_date) items.push(`Start: ${plan.start_date}`)
+    if (plan?.end_date) items.push(`End: ${plan.end_date}`)
+    return items
+  }, [plan?.methodology, plan?.developer_count, plan?.start_date, plan?.end_date])
 
   useEffect(() => {
     let cancelled = false
@@ -152,13 +185,21 @@ export default function ProjectPlanning() {
     }
   }
 
-  async function onGenerateAi() {
+  async function onGenerateAi(options = {}) {
     setBusy(true)
     setError('')
     try {
-      const res = await generateDevelopmentPlanWithOptions(id)
+      const payload = {
+        methodology: options.methodology || 'scrum',
+        developer_count: options.developer_count ? Number(options.developer_count) : undefined,
+        start_date: options.start_date || undefined,
+        end_date: options.end_date || undefined,
+        generation_notes: options.generation_notes || undefined,
+      }
+      const res = await generateDevelopmentPlanWithOptions(id, payload)
       setPlan(res?.data ?? null)
       await refreshProgress()
+      setAiModalOpen(false)
     } catch (e) {
       setError(e?.response?.data?.message ?? 'Failed to generate plan')
     } finally {
@@ -327,6 +368,9 @@ export default function ProjectPlanning() {
                 <span className="status-dot" aria-hidden="true" />
                 {plan?.source_type === 'ai' ? 'AI' : 'Manual'}
               </span>
+              {planningMeta.map((meta, idx) => (
+                <span key={`${meta}_${idx}`} className="muted">{meta}</span>
+              ))}
             </div>
           </div>
         </div>
@@ -343,10 +387,17 @@ export default function ProjectPlanning() {
               <option value="tasks_only">Tasks only</option>
             </select>
           </label> */}
-          <button type="button" className="secondary-btn" onClick={onGenerateAi} disabled={busy}>
-            <HiOutlineSparkles size={18} />
-            Generate with AI
-          </button>
+          {hasPlanContent ? (
+            <button type="button" className="secondary-btn" onClick={() => setRegenModalOpen(true)} disabled={busy}>
+              <HiOutlineSparkles size={18} />
+              Regenerate
+            </button>
+          ) : (
+            <button type="button" className="secondary-btn" onClick={() => setAiModalOpen(true)} disabled={busy}>
+              <HiOutlineSparkles size={18} />
+              Generate with AI
+            </button>
+          )}
           <button type="button" className="primary-btn" onClick={onSaveManual} disabled={busy}>
             Save
           </button>
@@ -358,6 +409,23 @@ export default function ProjectPlanning() {
       ) : error ? (
         <div className="error" role="alert" style={{ marginTop: 18 }}>
           {error}
+        </div>
+      ) : !hasPlanContent ? (
+        <div className="blueprint-empty" style={{ marginTop: 18 }}>
+          <div className="blueprint-empty-title">How would you like to start your development plan?</div>
+          <div className="blueprint-empty-sub muted">
+            You can create phases manually, or let AI generate an initial plan for you.
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginTop: 12 }}>
+            <button type="button" className="secondary-btn" onClick={onAddPhase} disabled={busy}>
+              <HiOutlinePlus size={18} />
+              Create Manually
+            </button>
+            <button type="button" className="primary-btn" onClick={() => setAiModalOpen(true)} disabled={busy}>
+              <HiOutlineSparkles size={18} />
+              Generate with AI
+            </button>
+          </div>
         </div>
       ) : (
         <div className="project-content" style={{ marginTop: 18 }}>
@@ -532,6 +600,125 @@ export default function ProjectPlanning() {
           </div>
         </div>
       )}
+
+      {aiModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="AI planning preferences">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Generate Development Plan</h3>
+                <div className="modal-subtitle muted">Set planning preferences for better AI alignment.</div>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gap: 10 }}>
+                <label className="muted" htmlFor="methodology">Methodology</label>
+                <select
+                  id="methodology"
+                  className="projects-status"
+                  value={aiOptions.methodology}
+                  onChange={(e) => setAiOptions((prev) => ({ ...prev, methodology: e.target.value }))}
+                >
+                  <option value="scrum">Scrum</option>
+                  <option value="kanban">Kanban</option>
+                  <option value="waterfall">Waterfall</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+
+                <label className="muted" htmlFor="developer_count">Number of Developers (optional)</label>
+                <input
+                  id="developer_count"
+                  type="number"
+                  min="1"
+                  className="projects-search-input"
+                  value={aiOptions.developer_count}
+                  onChange={(e) => setAiOptions((prev) => ({ ...prev, developer_count: e.target.value }))}
+                  placeholder="e.g. 3"
+                />
+
+                <label className="muted" htmlFor="start_date">Start Date (optional)</label>
+                <input
+                  id="start_date"
+                  type="date"
+                  className="projects-search-input"
+                  value={aiOptions.start_date}
+                  onChange={(e) => setAiOptions((prev) => ({ ...prev, start_date: e.target.value }))}
+                />
+
+                <label className="muted" htmlFor="end_date">End Date (optional)</label>
+                <input
+                  id="end_date"
+                  type="date"
+                  className="projects-search-input"
+                  value={aiOptions.end_date}
+                  onChange={(e) => setAiOptions((prev) => ({ ...prev, end_date: e.target.value }))}
+                />
+
+                <label className="muted" htmlFor="generation_notes">Additional Notes (optional)</label>
+                <textarea
+                  id="generation_notes"
+                  className="projects-search-input"
+                  rows={3}
+                  value={aiOptions.generation_notes}
+                  onChange={(e) => setAiOptions((prev) => ({ ...prev, generation_notes: e.target.value }))}
+                  placeholder="Any constraints or priorities for this plan..."
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => setAiModalOpen(false)}
+                  disabled={busy}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  disabled={busy || (aiOptions.end_date && aiOptions.start_date && aiOptions.end_date < aiOptions.start_date)}
+                  onClick={() => onGenerateAi(aiOptions)}
+                >
+                  {busy ? 'Generating…' : 'Generate Plan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {regenModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Regenerate development plan">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Regenerate development plan</h3>
+                <div className="modal-subtitle muted">
+                  This will replace current phases and tasks with a new AI-generated plan.
+                </div>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => setRegenModalOpen(false)} disabled={busy}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  disabled={busy}
+                  onClick={() => {
+                    setRegenModalOpen(false)
+                    setAiModalOpen(true)
+                  }}
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

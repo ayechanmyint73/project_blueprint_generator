@@ -12,6 +12,11 @@ class DevelopmentPlan extends Model
         'project_id',
         'source_type',
         'status',
+        'methodology',
+        'developer_count',
+        'start_date',
+        'end_date',
+        'generation_notes',
         'total_tasks',
         'completed_tasks',
         'progress_percent',
@@ -22,6 +27,9 @@ class DevelopmentPlan extends Model
         'total_tasks' => 'integer',
         'completed_tasks' => 'integer',
         'progress_percent' => 'integer',
+        'developer_count' => 'integer',
+        'start_date' => 'date',
+        'end_date' => 'date',
         'generated_at' => 'datetime',
     ];
 
@@ -66,4 +74,3 @@ class DevelopmentPlan extends Model
         ]);
     }
 }
-

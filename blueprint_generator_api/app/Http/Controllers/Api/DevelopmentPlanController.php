@@ -15,6 +15,16 @@ use Illuminate\Support\Str;
 
 class DevelopmentPlanController extends Controller
 {
+    private function normalizePriority(?string $value): string
+    {
+        $v = strtolower(trim((string) $value));
+        if (in_array($v, ['low', 'medium', 'high', 'critical'], true)) return $v;
+        if (str_contains($v, 'crit')) return 'critical';
+        if (str_contains($v, 'high')) return 'high';
+        if (str_contains($v, 'low')) return 'low';
+        return 'medium';
+    }
+
     private function normalizePhasedTasks($tasksJson): array
     {
         if (is_array($tasksJson) && array_key_exists('phases', $tasksJson) && is_array($tasksJson['phases'])) {
@@ -71,6 +81,11 @@ class DevelopmentPlanController extends Controller
             'project_id' => $plan->project_id,
             'source_type' => $plan->source_type,
             'status' => $plan->status,
+            'methodology' => $plan->methodology,
+            'developer_count' => $plan->developer_count,
+            'start_date' => $plan->start_date,
+            'end_date' => $plan->end_date,
+            'generation_notes' => $plan->generation_notes,
             'progress_percent' => $plan->progress_percent,
             'tasks_json' => [
                 'phases' => $phases,
@@ -100,7 +115,7 @@ class DevelopmentPlanController extends Controller
                 $phase->tasks()->create([
                     'title' => $taskData['title'] ?? '',
                     'status' => $taskData['status'] ?? 'pending',
-                    'priority' => $taskData['priority'] ?? 'medium',
+                    'priority' => $this->normalizePriority($taskData['priority'] ?? null),
                     'sort_order' => $taskSortOrder,
                 ]);
             }
@@ -129,8 +144,15 @@ class DevelopmentPlanController extends Controller
         }
 
         $project = Project::where('user_id', $userId)->findOrFail($projectId);
+        $options = $request->validate([
+            'methodology' => 'nullable|in:scrum,kanban,waterfall,hybrid',
+            'developer_count' => 'nullable|integer|min:1|max:200',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'generation_notes' => 'nullable|string|max:2000',
+        ]);
 
-        $prompt = $this->buildPrompt($project);
+        $prompt = $this->buildPrompt($project, $options);
 
         Log::info('Development plan generate started', [
             'request_id' => $requestId,
@@ -167,6 +189,11 @@ class DevelopmentPlanController extends Controller
             [
                 'source_type' => 'ai',
                 'status' => 'ready',
+                'methodology' => $options['methodology'] ?? null,
+                'developer_count' => $options['developer_count'] ?? null,
+                'start_date' => $options['start_date'] ?? null,
+                'end_date' => $options['end_date'] ?? null,
+                'generation_notes' => $options['generation_notes'] ?? null,
                 'generated_at' => now(),
             ]
         );
@@ -262,14 +289,33 @@ class DevelopmentPlanController extends Controller
         ]);
     }
 
-    private function buildPrompt($project)
+    private function buildPrompt($project, array $options = [])
     {
+        $methodology = $options['methodology'] ?? null;
+        $developerCount = $options['developer_count'] ?? null;
+        $startDate = $options['start_date'] ?? null;
+        $endDate = $options['end_date'] ?? null;
+        $generationNotes = trim((string) ($options['generation_notes'] ?? ''));
+
+        $constraints = [];
+        if ($methodology) $constraints[] = "Preferred methodology: " . strtoupper($methodology);
+        if ($developerCount) $constraints[] = "Team size: {$developerCount} developer(s)";
+        if ($startDate) $constraints[] = "Planned start date: {$startDate}";
+        if ($endDate) $constraints[] = "Target end date: {$endDate}";
+        if ($generationNotes !== '') $constraints[] = "Additional planning notes: {$generationNotes}";
+        $constraintsText = count($constraints)
+            ? "- " . implode("\n        - ", $constraints)
+            : "- None provided";
+
         return "
         You are an expert software development project planner. Create a detailed development roadmap for the following project:
 
         Project Name: {$project->project_name}
         Project Description: {$project->description}
         Target Users: {$project->target_users}
+
+        Planning constraints:
+        {$constraintsText}
 
         Instructions:
 
@@ -285,6 +331,8 @@ class DevelopmentPlanController extends Controller
         3. Tasks must be realistic for each of the project.
 
         4. Keep tasks concise and action-oriented.
+
+        5. Align phase/task style with the chosen methodology and constraints.
     ";
     }
 
@@ -337,6 +385,19 @@ class DevelopmentPlanController extends Controller
         foreach ($lines as $line) {
             $t = trim((string) $line);
             if ($t === '') continue;
+
+            // Ignore non-task metadata/header lines often returned by AI
+            $normalized = strtolower(trim(preg_replace('/[*_`]+/', '', $t)));
+            if (
+                $normalized === '---' ||
+                str_starts_with($normalized, 'development roadmap') ||
+                str_starts_with($normalized, 'methodology:') ||
+                str_starts_with($normalized, 'team size:') ||
+                str_starts_with($normalized, 'start date:') ||
+                str_starts_with($normalized, 'end date:')
+            ) {
+                continue;
+            }
 
             if (preg_match('/^phase\s+\d+\s*[:\-–]\s*(.+)$/i', $t, $m)) {
                 $flush();
