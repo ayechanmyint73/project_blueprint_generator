@@ -50,7 +50,7 @@ class AIService
     public function chat(array $messages, array $options = []): ?string
     {
         $apiKey = (string) config('services.openai.api_key', '');
-        $model = (string) ($options['model'] ?? config('services.openai.model', 'gpt-4.1-mini'));
+        $model = (string) ($options['model'] ?? config('services.openai.model', 'gpt-4.1-nano'));
         $url = (string) config('services.openai.url', 'https://api.openai.com/v1/chat/completions');
         $timeout = (int) ($options['timeout'] ?? 30);
         $temperature = (float) ($options['temperature'] ?? 0.7);

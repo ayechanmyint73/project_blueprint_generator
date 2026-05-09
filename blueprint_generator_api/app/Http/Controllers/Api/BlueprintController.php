@@ -93,7 +93,7 @@ class BlueprintController extends Controller
 
         AiUsage::record($userId, AiUsage::TYPE_BLUEPRINT);
 
-        $modelName = (string) config('services.openai.model', 'gpt-4.1-mini');
+        $modelName = (string) config('services.openai.model', 'gpt-4.1-nano');
         $existingAny = Blueprint::where('project_id', $project->id)->exists();
         $current = Blueprint::where('project_id', $project->id)
             ->where('is_current', true)
@@ -484,7 +484,7 @@ PROMPT;
                 ],
             ],
             [
-                'model' => 'gpt-4.1-mini',
+                'model' => 'gpt-4.1-nano',
                 'temperature' => 0.5,
                 'max_tokens' => 900,
                 'timeout' => 30,
@@ -504,7 +504,7 @@ PROMPT;
             'message' => 'Testing strategy generated successfully',
             'data' => [
                 'content' => $content,
-                'model' => 'gpt-4.1-mini',
+                'model' => 'gpt-4.1-nano',
             ],
             'request_id' => $requestId,
         ]);

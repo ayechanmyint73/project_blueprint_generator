@@ -47,3 +47,18 @@ export async function generateAndSaveTestingStrategies(projectId) {
   const res = await http.post(`/api/projects/${projectId}/testing-strategies/generate`)
   return res.data
 }
+
+export async function createTestingStrategy(projectId, payload) {
+  const res = await http.post(`/api/projects/${projectId}/testing-strategies`, payload)
+  return res.data
+}
+
+export async function updateTestingStrategy(projectId, testCaseId, payload) {
+  const res = await http.put(`/api/projects/${projectId}/testing-strategies/${testCaseId}`, payload)
+  return res.data
+}
+
+export async function deleteTestingStrategy(projectId, testCaseId) {
+  const res = await http.delete(`/api/projects/${projectId}/testing-strategies/${testCaseId}`)
+  return res.data
+}

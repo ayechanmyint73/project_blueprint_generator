@@ -37,7 +37,7 @@ return [
 
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_MODEL', 'gpt-4.1-mini'),
+        'model' => env('OPENAI_MODEL', 'gpt-4.1-nano'),
         'url' => env('OPENAI_URL', 'https://api.openai.com/v1/chat/completions'),
     ],
 

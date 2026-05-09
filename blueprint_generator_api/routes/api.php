@@ -43,6 +43,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Testing strategies (structured test cases)
     Route::get('/projects/{id}/testing-strategies', [\App\Http\Controllers\Api\TestingStrategyController::class, 'index']);
     Route::post('/projects/{id}/testing-strategies/generate', [\App\Http\Controllers\Api\TestingStrategyController::class, 'generate']);
+    Route::post('/projects/{id}/testing-strategies', [\App\Http\Controllers\Api\TestingStrategyController::class, 'store']);
+    Route::put('/projects/{id}/testing-strategies/{testCaseId}', [\App\Http\Controllers\Api\TestingStrategyController::class, 'update']);
+    Route::delete('/projects/{id}/testing-strategies/{testCaseId}', [\App\Http\Controllers\Api\TestingStrategyController::class, 'destroy']);
     Route::get('/projects/{id}/blueprints', [BlueprintController::class, 'listVersions']);
     Route::get('/projects/{id}/blueprint', [BlueprintController::class, 'show']);
     Route::put('/projects/{id}/blueprint/sections/{sectionId}', [BlueprintController::class, 'updateSection']);

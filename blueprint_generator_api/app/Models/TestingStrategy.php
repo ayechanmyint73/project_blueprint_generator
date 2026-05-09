@@ -15,6 +15,13 @@ class TestingStrategy extends Model
         'test_type',
         'description',
         'priority',
+        'is_checked',
+        'sort_order',
+    ];
+
+    protected $casts = [
+        'is_checked' => 'boolean',
+        'sort_order' => 'integer',
     ];
 
     public function project()

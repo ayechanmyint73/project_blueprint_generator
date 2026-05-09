@@ -1,8 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
-import { getTestingStrategies, generateAndSaveTestingStrategies } from '../api/blueprints'
-import { HiOutlineArrowLeft, HiOutlineClipboardCheck, HiOutlineSparkles } from 'react-icons/hi'
+import {
+  getTestingStrategies,
+  generateAndSaveTestingStrategies,
+  createTestingStrategy,
+  updateTestingStrategy,
+  deleteTestingStrategy,
+} from '../api/blueprints'
+import { HiOutlineArrowLeft, HiOutlineClipboardCheck, HiOutlineSparkles, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 function normalizeTitle(value) {
@@ -93,11 +99,7 @@ function renderTestingContent(content) {
     }
   }
 
-  return (
-    <div className="doc-paragraph">
-      {content}
-    </div>
-  )
+  return <div className="doc-paragraph">{content}</div>
 }
 
 export default function ProjectTesting() {
@@ -107,6 +109,10 @@ export default function ProjectTesting() {
   const [testCases, setTestCases] = useState([])
   const [generating, setGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState(null)
+  const [caseModalOpen, setCaseModalOpen] = useState(false)
+  const [form, setForm] = useState({ test_case: '', test_type: 'unit', description: '', priority: 'medium' })
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -124,13 +130,12 @@ export default function ProjectTesting() {
       }
     }
     load()
-    // load persisted test cases
     let loadCancelled = false
     async function loadCases() {
       try {
         const res = await getTestingStrategies(id)
         if (!loadCancelled) setTestCases(res?.data ?? [])
-      } catch (e) {
+      } catch {
         // ignore silently
       }
     }
@@ -150,14 +155,22 @@ export default function ProjectTesting() {
     }) ?? (strategyContent ? { title: 'Testing Strategy', content: strategyContent } : null)
   }, [strategyContent, testCases])
 
+  const testingMeta = useMemo(() => {
+    const count = testCases?.length ?? 0
+    return { total: count, source: count > 0 ? 'AI' : 'Not generated' }
+  }, [testCases])
+
+  async function refreshCases() {
+    const res = await getTestingStrategies(id)
+    setTestCases(res?.data ?? [])
+  }
+
   async function onGenerate() {
     setError('')
     setGenerating(true)
     try {
-      // generate structured test cases and persist them
       const data = await generateAndSaveTestingStrategies(id)
-      const created = data?.data ?? []
-      setTestCases(created)
+      setTestCases(data?.data ?? [])
     } catch (err) {
       setError(err?.response?.data?.message ?? 'Failed to generate testing strategy')
     } finally {
@@ -165,41 +178,75 @@ export default function ProjectTesting() {
     }
   }
 
-   function sanitizeFilename(name) {
-      return String(name || 'project').replace(/[^a-z0-9-_]/gi, '_')
+  async function onToggleChecked(item, checked) {
+    try {
+      setTestCases((prev) => prev.map((row) => (row.id === item.id ? { ...row, is_checked: checked } : row)))
+      await updateTestingStrategy(id, item.id, { is_checked: checked })
+    } catch (err) {
+      setError(err?.response?.data?.message ?? 'Failed to update checklist')
+      await refreshCases()
     }
+  }
 
-    function exportCsv() {
-      if (!testCases || !testCases.length) return
-      const rows = []
-      const header = ['Test Case', 'Test Type', 'Description', 'Priority']
-      rows.push(header)
-      for (const t of testCases) {
-        rows.push([
-          t.test_case ?? '',
-          t.test_type ?? '',
-          t.description ?? '',
-          t.priority ?? '',
-        ])
+  async function onSaveCase() {
+    setSaving(true)
+    setError('')
+    try {
+      if (editingId) {
+        await updateTestingStrategy(id, editingId, form)
+      } else {
+        await createTestingStrategy(id, form)
       }
+      setCaseModalOpen(false)
+      setEditingId(null)
+      setForm({ test_case: '', test_type: 'unit', description: '', priority: 'medium' })
+      await refreshCases()
+    } catch (err) {
+      setError(err?.response?.data?.message ?? 'Failed to save test case')
+    } finally {
+      setSaving(false)
+    }
+  }
 
-      const csv = rows
-        .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
-        .join('\n')
+  async function onDeleteCase(testCaseId) {
+    if (!window.confirm('Delete this test case?')) return
+    try {
+      await deleteTestingStrategy(id, testCaseId)
+      await refreshCases()
+    } catch (err) {
+      setError(err?.response?.data?.message ?? 'Failed to delete test case')
+    }
+  }
 
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      const fname = sanitizeFilename(project?.project_name)
-      a.download = `${fname}-test-cases.csv`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+  function sanitizeFilename(name) {
+    return String(name || 'project').replace(/[^a-z0-9-_]/gi, '_')
+  }
+
+  function exportCsv() {
+    if (!testCases || !testCases.length) return
+    const rows = []
+    const header = ['Test Case', 'Test Type', 'Description', 'Priority']
+    rows.push(header)
+    for (const t of testCases) {
+      rows.push([t.test_case ?? '', t.test_type ?? '', t.description ?? '', t.priority ?? ''])
     }
 
-    return (
+    const csv = rows
+      .map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${sanitizeFilename(project?.project_name)}-test-cases.csv`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
     <div className="page project-page">
       <div className="project-hero">
         <div className="project-hero-left">
@@ -207,7 +254,15 @@ export default function ProjectTesting() {
             <HiOutlineArrowLeft size={18} />
           </Link>
           <div className="project-hero-text">
-            <div className="project-hero-title">{project?.project_name ?? 'Project'} - Testing Strategy</div>
+            <div className="project-hero-title">Testing Strategy</div>
+            <div className="muted project-hero-subtitle">{project?.project_name ?? 'Project'}</div>
+            <div className="project-hero-meta">
+              <span className="muted">Total Cases: {testingMeta.total}</span>
+              <span className="meta-status">
+                <span className="status-dot" aria-hidden="true" />
+                {testingMeta.source}
+              </span>
+            </div>
           </div>
         </div>
         <div className="project-hero-actions">
@@ -215,13 +270,7 @@ export default function ProjectTesting() {
             <HiOutlineSparkles size={18} />
             {generating ? 'Generating…' : 'Generate Testing Strategy'}
           </button>
-          <button
-            type="button"
-            className="secondary-btn"
-            onClick={() => exportCsv()}
-            disabled={!testCases || testCases.length === 0}
-            style={{ marginLeft: 8 }}
-          >
+          <button type="button" className="secondary-btn" onClick={() => exportCsv()} disabled={!testCases || testCases.length === 0} style={{ marginLeft: 8 }}>
             Export CSV
           </button>
         </div>
@@ -252,19 +301,47 @@ export default function ProjectTesting() {
                     <table className="doc-table">
                       <thead>
                         <tr>
+                          <th>Done</th>
                           <th>Test Case</th>
                           <th>Test Type</th>
                           <th>Description</th>
                           <th>Priority</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
                         {testCases.map((t) => (
                           <tr key={t.id}>
-                            <td>{t.test_case}</td>
-                            <td>{t.test_type}</td>
-                            <td>{t.description}</td>
-                            <td>{t.priority}</td>
+                            <td>
+                              <input type="checkbox" checked={!!t.is_checked} onChange={(e) => onToggleChecked(t, e.target.checked)} />
+                            </td>
+                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.test_case}</td>
+                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.test_type}</td>
+                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.description}</td>
+                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.priority}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                  type="button"
+                                  className="icon-btn"
+                                  onClick={() => {
+                                    setEditingId(t.id)
+                                    setForm({
+                                      test_case: t.test_case ?? '',
+                                      test_type: t.test_type ?? 'unit',
+                                      description: t.description ?? '',
+                                      priority: t.priority ?? 'medium',
+                                    })
+                                    setCaseModalOpen(true)
+                                  }}
+                                >
+                                  <HiOutlinePencil size={15} />
+                                </button>
+                                <button type="button" className="icon-btn danger" onClick={() => onDeleteCase(t.id)}>
+                                  <HiOutlineTrash size={15} />
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -273,11 +350,82 @@ export default function ProjectTesting() {
                 ) : (
                   renderTestingContent(testingSection.content)
                 )}
+
+                <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => {
+                      setEditingId(null)
+                      setForm({ test_case: '', test_type: 'unit', description: '', priority: 'medium' })
+                      setCaseModalOpen(true)
+                    }}
+                  >
+                    Add New Test Case
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
       )}
+
+      {caseModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Test case form">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">{editingId ? 'Edit Test Case' : 'Add New Test Case'}</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gap: 10 }}>
+                <input
+                  className="projects-search-input"
+                  placeholder="Test case title"
+                  value={form.test_case}
+                  onChange={(e) => setForm((prev) => ({ ...prev, test_case: e.target.value }))}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  <input
+                    className="projects-search-input"
+                    placeholder="Test type (api/ui/security...)"
+                    value={form.test_type}
+                    onChange={(e) => setForm((prev) => ({ ...prev, test_type: e.target.value }))}
+                  />
+                  <select className="projects-status" value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+                <textarea
+                  className="projects-search-input"
+                  rows={3}
+                  placeholder="Description"
+                  value={form.description}
+                  onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setCaseModalOpen(false)
+                    setEditingId(null)
+                  }}
+                >
+                  Cancel
+                </button>
+                <button type="button" className="primary-btn" onClick={onSaveCase} disabled={saving || !form.test_case.trim() || !form.test_type.trim()}>
+                  {saving ? 'Saving…' : editingId ? 'Update Test Case' : 'Add Test Case'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

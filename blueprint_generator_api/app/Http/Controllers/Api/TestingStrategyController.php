@@ -12,15 +12,86 @@ use Illuminate\Support\Str;
 
 class TestingStrategyController extends Controller
 {
+    private function normalizePriority(?string $value): string
+    {
+        $v = strtolower(trim((string) $value));
+        return in_array($v, ['high', 'medium', 'low'], true) ? $v : 'medium';
+    }
+
     public function index(Request $request, $projectId)
     {
         $user = $request->user();
         if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
 
         $project = Project::where('user_id', $user->id)->findOrFail($projectId);
-        $items = $project->testingStrategies()->orderBy('priority', 'asc')->get();
+        $items = $project->testingStrategies()
+            ->orderBy('sort_order', 'asc')
+            ->orderBy('id', 'asc')
+            ->get();
 
         return response()->json(['data' => $items]);
+    }
+
+    public function store(Request $request, $projectId)
+    {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
+
+        $project = Project::where('user_id', $user->id)->findOrFail($projectId);
+        $data = $request->validate([
+            'test_case' => 'required|string|max:500',
+            'test_type' => 'required|string|max:100',
+            'description' => 'nullable|string|max:2000',
+            'priority' => 'nullable|string|in:high,medium,low',
+            'is_checked' => 'nullable|boolean',
+        ]);
+
+        $nextOrder = ((int) TestingStrategy::where('project_id', $project->id)->max('sort_order')) + 1;
+        $item = TestingStrategy::create([
+            'project_id' => $project->id,
+            'test_case' => $data['test_case'],
+            'test_type' => $data['test_type'],
+            'description' => $data['description'] ?? '',
+            'priority' => $this->normalizePriority($data['priority'] ?? 'medium'),
+            'is_checked' => (bool) ($data['is_checked'] ?? false),
+            'sort_order' => $nextOrder,
+        ]);
+
+        return response()->json(['message' => 'Test case created successfully', 'data' => $item], 201);
+    }
+
+    public function update(Request $request, $projectId, $testCaseId)
+    {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
+        $project = Project::where('user_id', $user->id)->findOrFail($projectId);
+
+        $item = TestingStrategy::where('project_id', $project->id)->findOrFail($testCaseId);
+        $data = $request->validate([
+            'test_case' => 'sometimes|required|string|max:500',
+            'test_type' => 'sometimes|required|string|max:100',
+            'description' => 'sometimes|nullable|string|max:2000',
+            'priority' => 'sometimes|nullable|string|in:high,medium,low',
+            'is_checked' => 'sometimes|boolean',
+        ]);
+
+        if (array_key_exists('priority', $data)) {
+            $data['priority'] = $this->normalizePriority($data['priority']);
+        }
+
+        $item->update($data);
+        return response()->json(['message' => 'Test case updated successfully', 'data' => $item->fresh()]);
+    }
+
+    public function destroy(Request $request, $projectId, $testCaseId)
+    {
+        $user = $request->user();
+        if (!$user) return response()->json(['message' => 'Unauthenticated'], 401);
+        $project = Project::where('user_id', $user->id)->findOrFail($projectId);
+
+        $item = TestingStrategy::where('project_id', $project->id)->findOrFail($testCaseId);
+        $item->delete();
+        return response()->json(['message' => 'Test case deleted successfully']);
     }
 
     public function generate(Request $request, $projectId, AIService $ai)
@@ -57,7 +128,7 @@ PROMPT;
                 ['role' => 'system', 'content' => 'You produce concise, machine-readable QA outputs.'],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            ['model' => 'gpt-4.1-mini', 'temperature' => 0.3, 'max_tokens' => 1200, 'timeout' => 30]
+            ['model' => 'gpt-4.1-nano', 'temperature' => 0.3, 'max_tokens' => 1200, 'timeout' => 30]
         );
 
         if (!is_string($content) || trim($content) === '') {
@@ -92,12 +163,15 @@ PROMPT;
         $created = [];
         foreach ($json as $item) {
             if (!is_array($item)) continue;
+            $nextOrder = ((int) TestingStrategy::where('project_id', $project->id)->max('sort_order')) + 1;
             $ts = TestingStrategy::create([
                 'project_id' => $project->id,
                 'test_case' => (string) ($item['test_case'] ?? ($item['title'] ?? 'Untitled')),
                 'test_type' => (string) ($item['test_type'] ?? 'unit'),
                 'description' => (string) ($item['description'] ?? ''),
-                'priority' => (string) ($item['priority'] ?? 'medium'),
+                'priority' => $this->normalizePriority((string) ($item['priority'] ?? 'medium')),
+                'is_checked' => false,
+                'sort_order' => $nextOrder,
             ]);
             $created[] = $ts;
         }

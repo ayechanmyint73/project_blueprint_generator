@@ -86,7 +86,7 @@ class ProjectUploadController extends Controller
                 'project_id' => $project->id,
                 'version' => 1,
                 'is_current' => true,
-                'model' => (string) config('services.openai.model', 'gpt-4.1-mini'),
+                'model' => (string) config('services.openai.model', 'gpt-4.1-nano'),
                 'token_used' => $ai->getLastTotalTokens(),
             ]);
             $this->syncSections($blueprint, $blueprintContent);
@@ -151,7 +151,7 @@ PROMPT;
                 ],
             ],
             [
-                'model' => 'gpt-4.1-mini',
+                'model' => 'gpt-5-mini',
                 'temperature' => 0.5,
                 'max_tokens' => 800,
                 'timeout' => 30,
