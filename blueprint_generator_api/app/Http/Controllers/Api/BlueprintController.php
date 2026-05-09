@@ -93,13 +93,18 @@ class BlueprintController extends Controller
         AiUsage::record($userId, AiUsage::TYPE_BLUEPRINT);
 
         $modelName = (string) config('services.openai.model', 'gpt-4.1-mini');
+        $existingAny = Blueprint::where('project_id', $project->id)->exists();
         $current = Blueprint::where('project_id', $project->id)
             ->where('is_current', true)
             ->latest('id')
             ->first();
+        if (!$current && $existingAny) {
+            $current = Blueprint::where('project_id', $project->id)->latest('version')->latest('id')->first();
+        }
 
         if (!$current) {
-            $nextVersion = 1;
+            $maxVersion = (int) Blueprint::where('project_id', $project->id)->max('version');
+            $nextVersion = max(1, $maxVersion + 1);
             $blueprint = Blueprint::create([
                 'project_id' => $project->id,
                 'version' => $nextVersion,
@@ -288,7 +293,14 @@ PROMPT;
         $project = Project::where('user_id', $user->id)
                 ->findOrFail($projectId);
 
-        $blueprint = $project->blueprint;
+        $version = $request->query('version');
+        $blueprintQuery = Blueprint::where('project_id', $project->id);
+        if ($version !== null && $version !== '') {
+            $blueprintQuery->where('version', (int) $version);
+        } else {
+            $blueprintQuery->where('is_current', true);
+        }
+        $blueprint = $blueprintQuery->latest('id')->first();
 
         if (!$blueprint) {
             return response()->json([
@@ -301,6 +313,24 @@ PROMPT;
         return response()->json([
             'message' => 'Blueprint retrieved successfully',
             'data' => $blueprint,
+        ]);
+    }
+
+    public function listVersions(Request $request, $projectId)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $project = Project::where('user_id', $user->id)->findOrFail($projectId);
+        $versions = Blueprint::where('project_id', $project->id)
+            ->orderByDesc('version')
+            ->get(['id', 'version', 'is_current', 'created_at', 'updated_at']);
+
+        return response()->json([
+            'message' => 'Blueprint versions retrieved successfully',
+            'data' => $versions,
         ]);
     }
 

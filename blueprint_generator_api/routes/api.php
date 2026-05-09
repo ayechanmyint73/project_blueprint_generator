@@ -43,6 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Testing strategies (structured test cases)
     Route::get('/projects/{id}/testing-strategies', [\App\Http\Controllers\Api\TestingStrategyController::class, 'index']);
     Route::post('/projects/{id}/testing-strategies/generate', [\App\Http\Controllers\Api\TestingStrategyController::class, 'generate']);
+    Route::get('/projects/{id}/blueprints', [BlueprintController::class, 'listVersions']);
     Route::get('/projects/{id}/blueprint', [BlueprintController::class, 'show']);
     Route::get('/projects/{id}/export-pdf', [PdfController::class, 'export']);
 

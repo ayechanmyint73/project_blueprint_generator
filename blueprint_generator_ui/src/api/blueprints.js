@@ -7,8 +7,15 @@ export async function generateBlueprint(projectId, regenerateMode = 'overwrite')
   return res.data
 }
 
-export async function getBlueprint(projectId) {
-  const res = await http.get(`/api/projects/${projectId}/blueprint`)
+export async function getBlueprint(projectId, version = null) {
+  const res = await http.get(`/api/projects/${projectId}/blueprint`, {
+    params: version ? { version } : undefined,
+  })
+  return res.data
+}
+
+export async function listBlueprintVersions(projectId) {
+  const res = await http.get(`/api/projects/${projectId}/blueprints`)
   return res.data
 }
 

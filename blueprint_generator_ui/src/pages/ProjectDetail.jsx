@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
-import { exportBlueprintPdf, generateBlueprint, getBlueprint } from '../api/blueprints'
+import { exportBlueprintPdf, generateBlueprint, getBlueprint, listBlueprintVersions } from '../api/blueprints'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   HiOutlineSparkles,
@@ -627,8 +627,11 @@ export default function ProjectDetail() {
   const [exportingPdf, setExportingPdf] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [regenModalOpen, setRegenModalOpen] = useState(false)
+  const [historyModalOpen, setHistoryModalOpen] = useState(false)
+  const [versions, setVersions] = useState([])
   const [error, setError] = useState('')
   const view = searchParams.get('view') ?? 'overview'
+  const versionParam = searchParams.get('version')
 
   useEffect(() => {
     let cancelled = false
@@ -655,7 +658,7 @@ export default function ProjectDetail() {
     let cancelled = false
     async function loadBlueprint() {
       try {
-        const data = await getBlueprint(id)
+        const data = await getBlueprint(id, versionParam ? Number(versionParam) : null)
         if (!cancelled) setBlueprint(data?.data)
       } catch (err) {
         // Blueprint not found is OK, don't show error
@@ -668,13 +671,31 @@ export default function ProjectDetail() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [id, versionParam])
+
+  useEffect(() => {
+    let cancelled = false
+    async function loadVersions() {
+      try {
+        const data = await listBlueprintVersions(id)
+        if (!cancelled) setVersions(Array.isArray(data?.data) ? data.data : [])
+      } catch {
+        if (!cancelled) setVersions([])
+      }
+    }
+    loadVersions()
+    return () => {
+      cancelled = true
+    }
+  }, [id, blueprint?.id])
 
   useEffect(() => {
     if (!VIEWS.some((v) => v.id === view)) {
-      setSearchParams({ view: 'overview' }, { replace: true })
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.set('view', 'overview')
+      setSearchParams(nextParams, { replace: true })
     }
-  }, [view, setSearchParams])
+  }, [view, searchParams, setSearchParams])
 
   function parseFilenameFromContentDisposition(value) {
     if (!value) return null
@@ -720,9 +741,20 @@ export default function ProjectDetail() {
     setRegenerating(true)
     try {
       await generateBlueprint(id, mode)
-      const [projectData, blueprintData] = await Promise.all([getProject(id), getBlueprint(id)])
+      const [projectData, blueprintData, versionsData] = await Promise.all([
+        getProject(id),
+        getBlueprint(id),
+        listBlueprintVersions(id),
+      ])
       setProject(projectData)
       setBlueprint(blueprintData?.data ?? null)
+      setVersions(Array.isArray(versionsData?.data) ? versionsData.data : [])
+      const nextVersion = blueprintData?.data?.version
+      if (nextVersion) {
+        const nextParams = new URLSearchParams(searchParams)
+        nextParams.set('version', String(nextVersion))
+        setSearchParams(nextParams, { replace: true })
+      }
       setRegenModalOpen(false)
     } catch (err) {
       const msg = err?.response?.data?.message ?? 'Failed to regenerate blueprint'
@@ -847,6 +879,15 @@ export default function ProjectDetail() {
         <div className="project-hero-actions">
           {blueprint ? (
             <>
+              <span className="pill pill-draft">{`v${blueprint?.version ?? 1}`}</span>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => setHistoryModalOpen(true)}
+                disabled={regenerating || versions.length === 0}
+              >
+                History
+              </button>
               <button
                 type="button"
                 className="secondary-btn"
@@ -877,7 +918,11 @@ export default function ProjectDetail() {
             key={v.id}
             type="button"
             className={`project-tab ${view === v.id ? 'active' : ''}`}
-            onClick={() => setSearchParams({ view: v.id })}
+            onClick={() => {
+              const nextParams = new URLSearchParams(searchParams)
+              nextParams.set('view', v.id)
+              setSearchParams(nextParams)
+            }}
           >
             <span className="tab-icon" aria-hidden="true">
               <v.icon size={18} />
@@ -933,6 +978,57 @@ export default function ProjectDetail() {
                   disabled={regenerating}
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {historyModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Blueprint version history">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Blueprint History</h3>
+                <div className="modal-subtitle muted">Choose which version to view.</div>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'grid', gap: 10 }}>
+                {versions.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      border: '1px solid var(--border)',
+                      borderRadius: 10,
+                      padding: '10px 12px',
+                    }}
+                  >
+                    <div className="muted">
+                      {`Version ${item.version}${item.is_current ? ' (Current)' : ''}`}
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary-btn"
+                      onClick={() => {
+                        const nextParams = new URLSearchParams(searchParams)
+                        nextParams.set('version', String(item.version))
+                        setSearchParams(nextParams)
+                        setHistoryModalOpen(false)
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => setHistoryModalOpen(false)}>
+                  Close
                 </button>
               </div>
             </div>
