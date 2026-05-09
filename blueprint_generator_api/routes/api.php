@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/projects/{id}/testing-strategies/generate', [\App\Http\Controllers\Api\TestingStrategyController::class, 'generate']);
     Route::get('/projects/{id}/blueprints', [BlueprintController::class, 'listVersions']);
     Route::get('/projects/{id}/blueprint', [BlueprintController::class, 'show']);
+    Route::put('/projects/{id}/blueprint/sections/{sectionId}', [BlueprintController::class, 'updateSection']);
     Route::get('/projects/{id}/export-pdf', [PdfController::class, 'export']);
 
     // Development Plan Generation Routes

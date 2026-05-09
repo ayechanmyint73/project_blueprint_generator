@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AiUsage;
 use App\Models\Project;
 use App\Models\Blueprint;
+use App\Models\BlueprintSection;
 use App\Services\AIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -331,6 +332,38 @@ PROMPT;
         return response()->json([
             'message' => 'Blueprint versions retrieved successfully',
             'data' => $versions,
+        ]);
+    }
+
+    public function updateSection(Request $request, $projectId, $sectionId)
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $payload = $request->validate([
+            'content' => 'required|string',
+        ]);
+
+        $project = Project::where('user_id', $user->id)->findOrFail($projectId);
+        $section = BlueprintSection::where('id', $sectionId)
+            ->whereHas('blueprint', function ($q) use ($project) {
+                $q->where('project_id', $project->id);
+            })
+            ->firstOrFail();
+
+        $section->update([
+            'content' => $payload['content'],
+        ]);
+
+        $section->blueprint()->update([
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Blueprint section updated successfully',
+            'data' => $section->fresh(),
         ]);
     }
 

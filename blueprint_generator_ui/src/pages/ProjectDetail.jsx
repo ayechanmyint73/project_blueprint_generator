@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
-import { exportBlueprintPdf, generateBlueprint, getBlueprint, listBlueprintVersions } from '../api/blueprints'
+import { exportBlueprintPdf, generateBlueprint, getBlueprint, listBlueprintVersions, updateBlueprintSection } from '../api/blueprints'
 import LoadingSpinner from '../components/LoadingSpinner'
 import {
   HiOutlineSparkles,
@@ -629,6 +629,10 @@ export default function ProjectDetail() {
   const [regenModalOpen, setRegenModalOpen] = useState(false)
   const [historyModalOpen, setHistoryModalOpen] = useState(false)
   const [versions, setVersions] = useState([])
+  const [editingSectionId, setEditingSectionId] = useState(null)
+  const [draftContent, setDraftContent] = useState('')
+  const [savingSectionId, setSavingSectionId] = useState(null)
+  const [toast, setToast] = useState('')
   const [error, setError] = useState('')
   const view = searchParams.get('view') ?? 'overview'
   const versionParam = searchParams.get('version')
@@ -764,12 +768,20 @@ export default function ProjectDetail() {
     }
   }
 
+  useEffect(() => {
+    if (!toast) return
+    const t = setTimeout(() => setToast(''), 2200)
+    return () => clearTimeout(t)
+  }, [toast])
+
   const blueprintSections = useMemo(() => {
     if (Array.isArray(blueprint?.sections) && blueprint.sections.length > 0) {
       return blueprint.sections
         .slice()
         .sort((a, b) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
         .map((section) => ({
+          id: section?.id,
+          section_key: section?.section_key ?? '',
           title: section?.title ?? '',
           content: section?.content ?? '',
         }))
@@ -800,6 +812,8 @@ export default function ProjectDetail() {
     if (!project) return null
 
     const sectionsForView = blueprintSectionsByCategory[view] ?? []
+    const editableViews = new Set(['features', 'requirements', 'userstories', 'techdata', 'risks', 'future'])
+    const canEditView = editableViews.has(view)
 
     return (
       <>
@@ -833,13 +847,72 @@ export default function ProjectDetail() {
               {(view === 'overview' ? overviewSections : sectionsForView).map((section, index) => {
                 const k = `${view}:${id}:${index}:${section?.title ?? ''}`
                 const mermaidCode = view === 'flowchart' || view === 'usecase' ? extractMermaidCode(section.content) : ''
+                const isEditing = editingSectionId != null && section?.id === editingSectionId
+                const hasUnsaved = isEditing && draftContent !== (section.content ?? '')
                 return (
                   <div key={k} className="doc-section" role="region" aria-label={section.title}>
                     <div className="doc-section-summary">
                       <span className="doc-section-title">{section.title}</span>
+                      {canEditView && section?.id ? (
+                        <button
+                          type="button"
+                          className="secondary-btn"
+                          onClick={() => {
+                            if (isEditing) {
+                              if (hasUnsaved && !window.confirm('Discard unsaved changes?')) return
+                              setEditingSectionId(null)
+                              setDraftContent('')
+                              return
+                            }
+                            if (editingSectionId != null && draftContent && !window.confirm('Discard unsaved changes and edit another section?')) return
+                            setEditingSectionId(section.id)
+                            setDraftContent(section.content ?? '')
+                          }}
+                          disabled={savingSectionId === section?.id}
+                          style={{ marginLeft: 'auto' }}
+                        >
+                          {isEditing ? 'Cancel' : 'Edit'}
+                        </button>
+                      ) : null}
                     </div>
                     <div className="doc-section-body">
-                      {view === 'flowchart' || view === 'usecase' ? <MermaidChart code={mermaidCode} /> : renderDocContent(section.content)}
+                      {isEditing ? (
+                        <div style={{ display: 'grid', gap: 10 }}>
+                          <textarea
+                            className="input"
+                            value={draftContent}
+                            onChange={(e) => setDraftContent(e.target.value)}
+                            rows={12}
+                          />
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button
+                              type="button"
+                              className="primary-btn"
+                              disabled={savingSectionId === section?.id}
+                              onClick={async () => {
+                                try {
+                                  setError('')
+                                  setSavingSectionId(section.id)
+                                  await updateBlueprintSection(id, section.id, draftContent)
+                                  const data = await getBlueprint(id, versionParam ? Number(versionParam) : null)
+                                  setBlueprint(data?.data ?? null)
+                                  setEditingSectionId(null)
+                                  setDraftContent('')
+                                  setToast('Section updated successfully')
+                                } catch (err) {
+                                  setError(err?.response?.data?.message ?? 'Failed to update section')
+                                } finally {
+                                  setSavingSectionId(null)
+                                }
+                              }}
+                            >
+                              {savingSectionId === section?.id ? 'Saving…' : 'Save'}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        view === 'flowchart' || view === 'usecase' ? <MermaidChart code={mermaidCode} /> : renderDocContent(section.content)
+                      )}
                     </div>
                   </div>
                 )
@@ -1033,6 +1106,26 @@ export default function ProjectDetail() {
               </div>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {toast ? (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            right: 18,
+            bottom: 18,
+            zIndex: 50,
+            background: '#50C878',
+            border: '1px solid var(--border)',
+            borderRadius: 10,
+            padding: '10px 12px',
+            boxShadow: 'var(--shadow)',
+          }}
+        >
+          {toast}
         </div>
       ) : null}
     </div>

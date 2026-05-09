@@ -19,6 +19,13 @@ export async function listBlueprintVersions(projectId) {
   return res.data
 }
 
+export async function updateBlueprintSection(projectId, sectionId, content) {
+  const res = await http.put(`/api/projects/${projectId}/blueprint/sections/${sectionId}`, {
+    content,
+  })
+  return res.data
+}
+
 export async function exportBlueprintPdf(projectId) {
   const res = await http.get(`/api/projects/${projectId}/export-pdf`, {
     responseType: 'blob',
