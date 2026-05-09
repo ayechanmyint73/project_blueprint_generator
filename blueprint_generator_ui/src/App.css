@@ -3036,6 +3036,20 @@ button:disabled {
   padding: 18px;
 }
 
+.page-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 18px;
+  margin-top: 18px;
+}
+
+.page-loading .spinner-large {
+  width: 32px;
+  height: 32px;
+  margin-bottom: 0;
+}
+
 .ws-scroll {
   flex: 1 1 auto;
   min-height: 0;

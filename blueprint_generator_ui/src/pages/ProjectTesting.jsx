@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
 import { getTestingStrategies, generateAndSaveTestingStrategies } from '../api/blueprints'
 import { HiOutlineArrowLeft, HiOutlineClipboardCheck, HiOutlineSparkles } from 'react-icons/hi'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 function normalizeTitle(value) {
   return String(value ?? '')
@@ -227,7 +228,7 @@ export default function ProjectTesting() {
       </div>
 
       {loading ? (
-        <div className="muted" style={{ marginTop: 18 }}>Loading…</div>
+        <LoadingSpinner />
       ) : error ? (
         <div className="error" role="alert" style={{ marginTop: 18 }}>{error}</div>
       ) : !testingSection ? (

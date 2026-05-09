@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { getProject } from '../api/projects'
 import { exportBlueprintPdf, getBlueprint } from '../api/blueprints'
+import LoadingSpinner from '../components/LoadingSpinner'
 import {
   HiOutlineSparkles,
   HiOutlineRefresh,
@@ -844,9 +845,7 @@ export default function ProjectDetail() {
       </div>
 
       {loading ? (
-        <div className="muted" style={{ marginTop: 18 }}>
-          Loading…
-        </div>
+        <LoadingSpinner />
       ) : error ? (
         <div className="error" role="alert" style={{ marginTop: 18 }}>
           {error}

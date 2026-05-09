@@ -9,6 +9,7 @@ import {
   HiOutlinePlus,
 } from 'react-icons/hi'
 import { listProjects } from '../api/projects'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 function formatDate(value) {
   if (!value) return ''
@@ -218,9 +219,7 @@ export default function ProjectsList() {
       {error ? <div className="error" role="alert">{error}</div> : null}
 
       {loading ? (
-        <div className="muted" style={{ marginTop: 18 }}>
-          Loading…
-        </div>
+        <LoadingSpinner />
       ) : filtered.length === 0 ? (
         projects.length === 0 ? (
           <div className="projects-empty">

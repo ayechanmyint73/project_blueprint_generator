@@ -16,6 +16,7 @@ import {
   saveDevelopmentPlan,
   updatePlanTask,
 } from '../api/plans'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 function uid() {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`
@@ -353,9 +354,7 @@ export default function ProjectPlanning() {
       </div>
 
       {loading ? (
-        <div className="muted" style={{ marginTop: 18 }}>
-          Loading…
-        </div>
+        <LoadingSpinner />
       ) : error ? (
         <div className="error" role="alert" style={{ marginTop: 18 }}>
           {error}

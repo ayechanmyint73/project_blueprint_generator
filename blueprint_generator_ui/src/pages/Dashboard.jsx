@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { HiOutlineCheckCircle, HiOutlineClock, HiOutlineDocumentText, HiOutlinePlus } from 'react-icons/hi'
 import { listProjects } from '../api/projects'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 function formatDate(value) {
   if (!value) return ''
@@ -88,7 +89,7 @@ export default function Dashboard() {
         <div className="page-head">
           <h1 className="page-title">Projects</h1>
         </div>
-        <div className="ws-loading">Loading dashboard...</div>
+        <LoadingSpinner label="Loading dashboard..." className="ws-loading page-loading" />
       </div>
     )
   }
