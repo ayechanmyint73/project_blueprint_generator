@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import { getProject } from '../api/projects'
 import { 
   HiOutlineHome, 
   HiOutlinePlus, 
@@ -18,9 +20,33 @@ export default function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
   const params = useParams()
+  const [projectTitle, setProjectTitle] = useState('')
 
   const projectId = params.id
   const onProjectDetail = Boolean(projectId) && location.pathname.startsWith(`/projects/${projectId}`)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadProjectTitle() {
+      if (!projectId || !onProjectDetail) {
+        if (!cancelled) setProjectTitle('')
+        return
+      }
+
+      try {
+        const data = await getProject(projectId)
+        if (!cancelled) setProjectTitle(String(data?.project_name ?? '').trim())
+      } catch {
+        if (!cancelled) setProjectTitle('')
+      }
+    }
+
+    loadProjectTitle()
+    return () => {
+      cancelled = true
+    }
+  }, [projectId, onProjectDetail])
 
   async function onLogout() {
     await logout()
@@ -57,7 +83,7 @@ export default function AppShell() {
         </nav>
 
         <div className="sidebar-section">
-          Project views <span className="sidebar-hint">(select a project)</span>
+          {onProjectDetail && projectTitle ? projectTitle : <>Project views <span className="sidebar-hint">(select a project)</span></>}
         </div>
         <nav className="sidebar-nav">
           <NavLink
