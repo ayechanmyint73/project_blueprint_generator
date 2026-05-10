@@ -9,6 +9,7 @@ use App\Models\AiUsage;
 use App\Services\AIService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class TestingStrategyController extends Controller
 {
@@ -106,21 +107,78 @@ class TestingStrategyController extends Controller
         }
 
         $project = Project::where('user_id', $userId)->findOrFail($projectId);
+        $constraints = [];
+        if (!empty($project->tech_stack)) $constraints[] = "Tech stack: {$project->tech_stack}";
+        if (!empty($project->scope)) $constraints[] = "Project scope: {$project->scope}";
+        if (!empty($project->constraints)) $constraints[] = "Known constraints: {$project->constraints}";
+        $constraintsText = count($constraints)
+            ? "- " . implode("\n", array_map(fn ($line) => $line, $constraints))
+            : "- None provided";
 
         $prompt = <<<PROMPT
-You are a senior QA lead.
+You are a senior QA engineer and software testing lead.
 
-For the following project, generate a JSON array of test cases. Each item must be an object with keys: "test_case", "test_type", "description", "priority".
+Generate realistic and practical software test cases for the following project.
 
-Project Name: {$project->project_name}
-Project Description: {$project->description}
-Target Users: {$project->target_users}
+PROJECT INFORMATION
 
-Requirements:
-- Return ONLY valid JSON (an array of objects).
-- Provide 10-20 practical test cases covering unit, integration, API, UI, security, and performance.
-- Use priority values: high, medium, low.
-- Keep descriptions concise and actionable.
+Project Name:
+{$project->project_name}
+
+Project Description:
+{$project->description}
+
+Target Users:
+{$project->target_users}
+
+PROJECT CONSTRAINTS
+
+{$constraintsText}
+
+REQUIREMENTS
+
+Generate a JSON array of test case objects.
+
+Each object must contain:
+- "test_case"
+- "test_type"
+- "description"
+- "priority"
+
+TESTING COVERAGE
+
+Include realistic test cases covering:
+- Unit Testing
+- Integration Testing
+- API Testing
+- UI/UX Testing
+- Authentication & Authorization
+- Security Testing
+- Performance Testing
+- Validation & Error Handling
+- User Workflow Testing
+- Database Testing
+
+TEST CASE RULES
+
+- Generate minimum of 12–18 test cases
+- Test cases must reflect the actual project functionality
+- Avoid generic or repetitive test cases
+- Descriptions must be concise and actionable
+- Priorities must use only:
+  - "high"
+  - "medium"
+  - "low"
+- Focus on realistic user behaviour and system workflows
+- Include edge-case testing when relevant
+- If the project includes AI functionality, include AI-response validation tests
+
+OUTPUT RULES
+
+- Return ONLY valid JSON
+- Do not include markdown
+- Do not include explanations
+- Do not include comments
 PROMPT;
 
         $content = $ai->chat(
@@ -159,22 +217,28 @@ PROMPT;
             return response()->json(['message' => 'AI returned non-JSON output. Please try again.', 'raw' => $content, 'request_id' => $requestId], 502);
         }
 
-        // Persist results
-        $created = [];
-        foreach ($json as $item) {
-            if (!is_array($item)) continue;
-            $nextOrder = ((int) TestingStrategy::where('project_id', $project->id)->max('sort_order')) + 1;
-            $ts = TestingStrategy::create([
-                'project_id' => $project->id,
-                'test_case' => (string) ($item['test_case'] ?? ($item['title'] ?? 'Untitled')),
-                'test_type' => (string) ($item['test_type'] ?? 'unit'),
-                'description' => (string) ($item['description'] ?? ''),
-                'priority' => $this->normalizePriority((string) ($item['priority'] ?? 'medium')),
-                'is_checked' => false,
-                'sort_order' => $nextOrder,
-            ]);
-            $created[] = $ts;
-        }
+        // Persist results by replacing existing test cases
+        $created = DB::transaction(function () use ($project, $json) {
+            TestingStrategy::where('project_id', $project->id)->delete();
+
+            $newItems = [];
+            $sortOrder = 1;
+            foreach ($json as $item) {
+                if (!is_array($item)) continue;
+                $ts = TestingStrategy::create([
+                    'project_id' => $project->id,
+                    'test_case' => (string) ($item['test_case'] ?? ($item['title'] ?? 'Untitled')),
+                    'test_type' => (string) ($item['test_type'] ?? 'unit'),
+                    'description' => (string) ($item['description'] ?? ''),
+                    'priority' => $this->normalizePriority((string) ($item['priority'] ?? 'medium')),
+                    'is_checked' => false,
+                    'sort_order' => $sortOrder++,
+                ]);
+                $newItems[] = $ts;
+            }
+
+            return $newItems;
+        });
 
         AiUsage::record($userId, AiUsage::TYPE_TESTING_STRATEGY);
 

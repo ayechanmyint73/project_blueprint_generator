@@ -308,31 +308,61 @@ class DevelopmentPlanController extends Controller
             : "- None provided";
 
         return "
-        You are an expert software development project planner. Create a detailed development roadmap for the following project:
+        You are a senior software architect and Agile project planner.
 
-        Project Name: {$project->project_name}
-        Project Description: {$project->description}
-        Target Users: {$project->target_users}
+Generate a realistic software development roadmap for the following project.
 
-        Planning constraints:
-        {$constraintsText}
+Project Name:
+{$project->project_name}
 
-        Instructions:
+Project Description:
+{$project->description}
 
-        1. Divide the roadmap into 4 clear phases:
-        - Phase 1: Setup & Planning
-        - Phase 2: Core Development
-        - Phase 3: AI / Advanced Features (if applicable)
-        - Phase 4: Testing & Deployment
-        - Phase 5: Future Enhancements & Maintenance
+Target Users:
+{$project->target_users}
 
-        2. Under each phase, provide 5 practical development tasks.
+Constraints:
+{$constraintsText}
 
-        3. Tasks must be realistic for each of the project.
+Requirements:
 
-        4. Keep tasks concise and action-oriented.
+1. Divide the roadmap into the following phases:
+- Phase 1: Setup & Planning
+- Phase 2: System Design
+- Phase 3: Core Development
+- Phase 4: Advanced Features / AI Integration
+- Phase 5: Testing & Deployment
+- Phase 6: Future Enhancements & Maintenance
 
-        5. Align phase/task style with the chosen methodology and constraints.
+2. Under each phase, provide 5–7 practical development tasks.
+
+3. Tasks must:
+- be short
+- action-oriented
+- realistic
+- implementation-focused
+- suitable for checklist tracking
+
+4. Tasks should follow real software development workflow order.
+
+5. Avoid vague tasks such as:
+- Build the system
+- Develop everything
+
+6. Include frontend, backend, database, authentication, API, testing, and deployment tasks when relevant.
+
+7. Output format:
+
+Phase 1: Setup & Planning
+- Task 1
+- Task 2
+- Task 3
+
+Phase 2: System Design
+- Task 1
+- Task 2
+
+Do not include explanations or paragraphs. Only provide the roadmap in the specified format. When giving the output, consider this {$constraintsText} for the realistic development plan. Beside each phase, consider adding start date and end date if the user provided them, and adjust task timelines accordingly.
     ";
     }
 
