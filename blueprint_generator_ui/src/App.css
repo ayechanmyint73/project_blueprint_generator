@@ -436,12 +436,14 @@
 
 .projects-search-input {
   flex: 1 1 auto;
-  border: none;
+  border: 0.5px solid rgb(128, 128, 128);
   outline: none;
   background: transparent;
   font: inherit;
   color: var(--text-h);
   min-width: 160px;
+  margin-bottom: 14px;
+  height: auto;
 }
 
 .projects-search-clear {
@@ -3058,6 +3060,119 @@ button:disabled {
 
 .ws-content {
   padding: 18px;
+}
+
+.testing-filters {
+  padding: 10px;
+  display: grid;
+  gap: 10px;
+}
+
+.testing-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.testing-filters-inline {
+  margin-left: auto;
+  padding: 10px;
+}
+
+.testing-filters-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.testing-filter-field {
+  min-width: 180px;
+  flex: 0 0 190px;
+}
+
+.testing-filter-select {
+  min-width: 0;
+  width: 100%;
+}
+
+.testing-filter-summary {
+  margin-left: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.testing-filter-reset {
+  border: none;
+  background: none;
+  justify-content: center;
+  width: auto;
+  padding: 0;
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--brand);
+  cursor: pointer;
+  border-color: none;
+}
+
+.testing-filter-reset:hover {
+  text-decoration: underline;
+  background: none;
+  border: none;
+}
+
+.testing-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.testing-filter-chip {
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, var(--border));
+  background: color-mix(in srgb, var(--brand) 8%, var(--card));
+  color: var(--text-h);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.testing-filter-chip:hover {
+  background: color-mix(in srgb, var(--brand) 12%, var(--card));
+}
+
+.testing-no-results {
+  min-height: 140px;
+  display: grid;
+  gap: 10px;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .testing-filters-inline {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .testing-filter-field {
+    min-width: 0;
+    flex: 1 1 100%;
+  }
+
+  .testing-filter-summary {
+    margin-left: 0;
+    width: auto;
+    justify-content: flex-end;
+  }
 }
 
 .ws-h2 {

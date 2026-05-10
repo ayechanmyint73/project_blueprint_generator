@@ -7,6 +7,7 @@ import {
   HiOutlineCalendar,
   HiOutlineTrash,
   HiOutlinePencil,
+  HiOutlineExclamation,
 } from 'react-icons/hi'
 import { getProject } from '../api/projects'
 import {
@@ -49,6 +50,24 @@ function formatMethodology(value) {
   return value
 }
 
+function formatDisplayDate(value) {
+  if (!value) return ''
+  const raw = String(value).trim()
+  if (!raw) return ''
+
+  const datePart = raw.includes('T') ? raw.split('T')[0] : raw
+  const [y, m, d] = datePart.split('-').map((n) => Number(n))
+  if (!y || !m || !d) return datePart
+
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(dt)
+}
+
 export default function ProjectPlanning() {
   const { id } = useParams()
   const [project, setProject] = useState(null)
@@ -63,6 +82,12 @@ export default function ProjectPlanning() {
   const [editingTask, setEditingTask] = useState(null) // { phaseId, taskId } | null
   const [aiModalOpen, setAiModalOpen] = useState(false)
   const [regenModalOpen, setRegenModalOpen] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false)
+  const [deletePhaseModalOpen, setDeletePhaseModalOpen] = useState(false)
+  const [deletePhaseTargetId, setDeletePhaseTargetId] = useState(null)
+  const [deleteTaskModalOpen, setDeleteTaskModalOpen] = useState(false)
+  const [deleteTaskTarget, setDeleteTaskTarget] = useState(null) // { phaseId, taskId }
   const [aiOptions, setAiOptions] = useState({
     methodology: 'scrum',
     developer_count: '',
@@ -121,10 +146,10 @@ export default function ProjectPlanning() {
     const methodologyLabel = formatMethodology(plan?.methodology)
     if (methodologyLabel) items.push(`Methodology: ${methodologyLabel}`)
     if (plan?.developer_count) items.push(`Team: ${plan.developer_count} developer${Number(plan.developer_count) > 1 ? 's' : ''}`)
-    if (plan?.start_date) items.push(`Start: ${plan.start_date}`)
-    if (plan?.end_date) items.push(`End: ${plan.end_date}`)
+    if (plan?.start_date) items.push(`Target Start Date: ${formatDisplayDate(plan.start_date)}`)
+    if (plan?.end_date) items.push(`Target End Date: ${formatDisplayDate(plan.end_date)}`)
     return items
-  }, [plan?.methodology, plan?.developer_count, plan?.start_date, plan?.end_date])
+  }, [plan])
 
   useEffect(() => {
     let cancelled = false
@@ -187,6 +212,8 @@ export default function ProjectPlanning() {
 
   async function onGenerateAi(options = {}) {
     setBusy(true)
+    setIsGeneratingPlan(true)
+    setAiModalOpen(false)
     setError('')
     try {
       const payload = {
@@ -199,11 +226,12 @@ export default function ProjectPlanning() {
       const res = await generateDevelopmentPlanWithOptions(id, payload)
       setPlan(res?.data ?? null)
       await refreshProgress()
-      setAiModalOpen(false)
     } catch (e) {
       setError(e?.response?.data?.message ?? 'Failed to generate plan')
     } finally {
       setBusy(false)
+      setIsGeneratingPlan(false)
+      setIsRegenerating(false)
     }
   }
 
@@ -393,7 +421,7 @@ export default function ProjectPlanning() {
               Regenerate
             </button>
           ) : (
-            <button type="button" className="secondary-btn" onClick={() => setAiModalOpen(true)} disabled={busy}>
+            <button type="button" className="secondary-btn" onClick={() => { setIsRegenerating(false); setAiModalOpen(true) }} disabled={busy}>
               <HiOutlineSparkles size={18} />
               Generate with AI
             </button>
@@ -421,7 +449,7 @@ export default function ProjectPlanning() {
               <HiOutlinePlus size={18} />
               Create Manually
             </button>
-            <button type="button" className="primary-btn" onClick={() => setAiModalOpen(true)} disabled={busy}>
+            <button type="button" className="primary-btn" onClick={() => { setIsRegenerating(false); setAiModalOpen(true) }} disabled={busy}>
               <HiOutlineSparkles size={18} />
               Generate with AI
             </button>
@@ -514,9 +542,8 @@ export default function ProjectPlanning() {
                               type="button"
                               className="icon-btn danger"
                               onClick={() => {
-                                if (!window.confirm('Delete this phase and all its tasks?')) return
-                                const patched = onDeletePhaseLocal(p.id)
-                                void persistPlan(patched, { refresh: true })
+                                setDeletePhaseTargetId(p.id)
+                                setDeletePhaseModalOpen(true)
                               }}
                               disabled={busy || saving}
                               aria-label="Delete phase"
@@ -570,11 +597,10 @@ export default function ProjectPlanning() {
                                     <button
                                       type="button"
                                       className="icon-btn danger"
-                                      onClick={() => {
-                                        if (!window.confirm('Delete this task?')) return
-                                        const patched = onDeleteTaskLocal(p.id, t.id)
-                                        void persistPlan(patched, { refresh: true })
-                                      }}
+                                    onClick={() => {
+                                      setDeleteTaskTarget({ phaseId: p.id, taskId: t.id })
+                                      setDeleteTaskModalOpen(true)
+                                    }}
                                       disabled={busy || saving}
                                       aria-label="Delete task"
                                       title="Delete task"
@@ -636,7 +662,7 @@ export default function ProjectPlanning() {
                   placeholder="e.g. 3"
                 />
 
-                <label className="muted" htmlFor="start_date">Start Date (optional)</label>
+                <label className="muted" htmlFor="start_date">Targeted Start Date (optional)</label>
                 <input
                   id="start_date"
                   type="date"
@@ -645,7 +671,7 @@ export default function ProjectPlanning() {
                   onChange={(e) => setAiOptions((prev) => ({ ...prev, start_date: e.target.value }))}
                 />
 
-                <label className="muted" htmlFor="end_date">End Date (optional)</label>
+                <label className="muted" htmlFor="end_date">Targeted End Date (optional)</label>
                 <input
                   id="end_date"
                   type="date"
@@ -668,7 +694,10 @@ export default function ProjectPlanning() {
                 <button
                   type="button"
                   className="secondary-btn"
-                  onClick={() => setAiModalOpen(false)}
+                  onClick={() => {
+                    setAiModalOpen(false)
+                    setIsRegenerating(false)
+                  }}
                   disabled={busy}
                 >
                   Cancel
@@ -680,6 +709,70 @@ export default function ProjectPlanning() {
                   onClick={() => onGenerateAi(aiOptions)}
                 >
                   {busy ? 'Generating…' : 'Generate Plan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deletePhaseModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Confirm delete phase">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Delete Phase</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <HiOutlineExclamation size={32} style={{ color: '#ef4444', flexShrink: 0 }} />
+                <p className="muted" style={{ margin: 0 }}>Are you sure you want to delete this phase and all its tasks? This action cannot be undone.</p>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => { setDeletePhaseModalOpen(false); setDeletePhaseTargetId(null) }} disabled={busy || saving}>
+                  Cancel
+                </button>
+                <button type="button" className="primary-btn" style={{ backgroundColor: '#dc2626' }} onClick={() => {
+                  if (!deletePhaseTargetId) return
+                  const patched = onDeletePhaseLocal(deletePhaseTargetId)
+                  void persistPlan(patched, { refresh: true })
+                  setDeletePhaseModalOpen(false)
+                  setDeletePhaseTargetId(null)
+                }} disabled={busy || saving}>
+                  {busy || saving ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteTaskModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Confirm delete task">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Delete Task</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <HiOutlineExclamation size={32} style={{ color: '#ef4444', flexShrink: 0 }} />
+                <p className="muted" style={{ margin: 0 }}>Are you sure you want to delete this task? This action cannot be undone.</p>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => { setDeleteTaskModalOpen(false); setDeleteTaskTarget(null) }} disabled={busy || saving}>
+                  Cancel
+                </button>
+                <button type="button" className="primary-btn" style={{ backgroundColor: '#dc2626' }} onClick={() => {
+                  if (!deleteTaskTarget) return
+                  const patched = onDeleteTaskLocal(deleteTaskTarget.phaseId, deleteTaskTarget.taskId)
+                  void persistPlan(patched, { refresh: true })
+                  setDeleteTaskModalOpen(false)
+                  setDeleteTaskTarget(null)
+                }} disabled={busy || saving}>
+                  {busy || saving ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
             </div>
@@ -709,11 +802,39 @@ export default function ProjectPlanning() {
                   disabled={busy}
                   onClick={() => {
                     setRegenModalOpen(false)
+                    setIsRegenerating(true)
                     setAiModalOpen(true)
                   }}
                 >
                   Continue
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {busy && isGeneratingPlan ? (
+        <div
+          className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label={isRegenerating ? 'Regenerating development plan' : 'Generating development plan'}
+        >
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">{isRegenerating ? 'Regenerating Development Plan' : 'Generating Development Plan'}</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <LoadingSpinner />
+                <p className="muted" style={{ margin: 0 }}>
+                  {isRegenerating
+                    ? 'Please wait while we replace your current phases and tasks with a newly generated plan.'
+                    : 'Please wait while we generate your development plan.'}
+                </p>
               </div>
             </div>
           </div>

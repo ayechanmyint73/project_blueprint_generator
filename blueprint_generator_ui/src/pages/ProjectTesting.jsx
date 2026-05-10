@@ -8,7 +8,7 @@ import {
   updateTestingStrategy,
   deleteTestingStrategy,
 } from '../api/blueprints'
-import { HiOutlineArrowLeft, HiOutlineClipboardCheck, HiOutlineSparkles, HiOutlinePencil, HiOutlineTrash } from 'react-icons/hi'
+import { HiOutlineArrowLeft, HiOutlineClipboardCheck, HiOutlineSparkles, HiOutlinePencil, HiOutlineTrash, HiOutlineExclamation } from 'react-icons/hi'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 function normalizeTitle(value) {
@@ -105,13 +105,18 @@ function renderTestingContent(content) {
 export default function ProjectTesting() {
   const { id } = useParams()
   const [project, setProject] = useState(null)
-  const [strategyContent, setStrategyContent] = useState('')
+  const [strategyContent] = useState('')
   const [testCases, setTestCases] = useState([])
   const [generating, setGenerating] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [caseModalOpen, setCaseModalOpen] = useState(false)
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteTargetId, setDeleteTargetId] = useState(null)
+  const [regenModalOpen, setRegenModalOpen] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [filters, setFilters] = useState({ testType: 'all', priority: 'all' })
   const [form, setForm] = useState({ test_case: '', test_type: 'unit', description: '', priority: 'medium' })
   const [error, setError] = useState('')
 
@@ -160,6 +165,21 @@ export default function ProjectTesting() {
     return { total: count, source: count > 0 ? 'AI' : 'Not generated' }
   }, [testCases])
 
+  const filterOptions = useMemo(() => {
+    const types = Array.from(new Set((testCases ?? []).map((t) => String(t.test_type ?? '').trim()).filter(Boolean)))
+    const priorities = Array.from(new Set((testCases ?? []).map((t) => String(t.priority ?? '').trim()).filter(Boolean)))
+    return { types, priorities }
+  }, [testCases])
+
+  const filteredTestCases = useMemo(() => {
+    return (testCases ?? []).filter((t) => {
+      const byType = filters.testType === 'all' || String(t.test_type ?? '').trim() === filters.testType
+      const byPriority = filters.priority === 'all' || String(t.priority ?? '').trim() === filters.priority
+      return byType && byPriority
+    })
+  }, [testCases, filters])
+  const hasActiveFilters = filters.testType !== 'all' || filters.priority !== 'all'
+
   async function refreshCases() {
     const res = await getTestingStrategies(id)
     setTestCases(res?.data ?? [])
@@ -175,6 +195,7 @@ export default function ProjectTesting() {
       setError(err?.response?.data?.message ?? 'Failed to generate testing strategy')
     } finally {
       setGenerating(false)
+      setIsRegenerating(false)
     }
   }
 
@@ -208,14 +229,25 @@ export default function ProjectTesting() {
     }
   }
 
-  async function onDeleteCase(testCaseId) {
-    if (!window.confirm('Delete this test case?')) return
+  async function onConfirmDelete() {
+    if (!deleteTargetId) return
+    setSaving(true)
+    setError('')
     try {
-      await deleteTestingStrategy(id, testCaseId)
+      await deleteTestingStrategy(id, deleteTargetId)
       await refreshCases()
+      setDeleteModalOpen(false)
+      setDeleteTargetId(null)
     } catch (err) {
       setError(err?.response?.data?.message ?? 'Failed to delete test case')
+    } finally {
+      setSaving(false)
     }
+  }
+
+  function onDeleteRequest(testCaseId) {
+    setDeleteTargetId(testCaseId)
+    setDeleteModalOpen(true)
   }
 
   function sanitizeFilename(name) {
@@ -266,10 +298,25 @@ export default function ProjectTesting() {
           </div>
         </div>
         <div className="project-hero-actions">
-          <button type="button" className="primary-btn" onClick={onGenerate} disabled={generating || loading}>
-            <HiOutlineSparkles size={18} />
-            {generating ? 'Generating…' : 'Generate Testing Strategy'}
-          </button>
+          {testCases && testCases.length > 0 ? (
+            <button type="button" className="secondary-btn" onClick={() => setRegenModalOpen(true)} disabled={generating || loading}>
+              <HiOutlineSparkles size={18} />
+              Regenerate
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => {
+                setIsRegenerating(false)
+                onGenerate()
+              }}
+              disabled={generating || loading}
+            >
+              <HiOutlineSparkles size={18} />
+              {generating ? 'Generating…' : 'Generate Testing Strategy'}
+            </button>
+          )}
           <button type="button" className="secondary-btn" onClick={() => exportCsv()} disabled={!testCases || testCases.length === 0} style={{ marginLeft: 8 }}>
             Export CSV
           </button>
@@ -287,65 +334,157 @@ export default function ProjectTesting() {
           </div>
           <h3>No Testing Strategy Yet</h3>
           <p className="muted">Click “Generate Testing Strategy” to create one for this project.</p>
+
+          <button type="button" className="primary-btn" onClick={onGenerate} disabled={generating || loading}>
+                        <HiOutlineSparkles size={18} />
+                        Generate Testing Strategy
+          </button>
         </div>
       ) : (
         <div className="doc-wrap" aria-label="Testing strategy document">
           <div className="doc-body">
             <div className="doc-section" role="region" aria-label={testingSection.title}>
-              <div className="doc-section-summary">
+              <div className="doc-section-summary testing-summary-row">
                 <span className="doc-section-title">{testingSection.title}</span>
+                {testCases && testCases.length ? (
+                  <div className="testing-filters testing-filters-inline">
+                    <div className="testing-filters-row">
+                      <div className="testing-filter-field">
+                        <select
+                          id="filter_test_type"
+                          className="projects-status testing-filter-select"
+                          value={filters.testType}
+                          onChange={(e) => setFilters((prev) => ({ ...prev, testType: e.target.value }))}
+                        >
+                          <option value="all">All Types</option>
+                          {filterOptions.types.map((type) => (
+                            <option key={type} value={type}>{type}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="testing-filter-field">
+                        <select
+                          id="filter_priority"
+                          className="projects-status testing-filter-select"
+                          value={filters.priority}
+                          onChange={(e) => setFilters((prev) => ({ ...prev, priority: e.target.value }))}
+                        >
+                          <option value="all">All Priorities</option>
+                          {filterOptions.priorities.map((priority) => (
+                            <option key={priority} value={priority}>
+                              {String(priority).charAt(0).toUpperCase() + String(priority).slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="testing-filter-summary">
+                        {hasActiveFilters ? (
+                          <button
+                            type="button"
+                            className="testing-filter-reset"
+                            onClick={() => setFilters({ testType: 'all', priority: 'all' })}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="doc-section-body">
                 {testCases && testCases.length ? (
-                  <div className="doc-table-wrap">
-                    <table className="doc-table">
-                      <thead>
-                        <tr>
-                          <th>Done</th>
-                          <th>Test Case</th>
-                          <th>Test Type</th>
-                          <th>Description</th>
-                          <th>Priority</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {testCases.map((t) => (
-                          <tr key={t.id}>
-                            <td>
-                              <input type="checkbox" checked={!!t.is_checked} onChange={(e) => onToggleChecked(t, e.target.checked)} />
-                            </td>
-                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.test_case}</td>
-                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.test_type}</td>
-                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.description}</td>
-                            <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.priority}</td>
-                            <td>
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <button
-                                  type="button"
-                                  className="icon-btn"
-                                  onClick={() => {
-                                    setEditingId(t.id)
-                                    setForm({
-                                      test_case: t.test_case ?? '',
-                                      test_type: t.test_type ?? 'unit',
-                                      description: t.description ?? '',
-                                      priority: t.priority ?? 'medium',
-                                    })
-                                    setCaseModalOpen(true)
-                                  }}
-                                >
-                                  <HiOutlinePencil size={15} />
-                                </button>
-                                <button type="button" className="icon-btn danger" onClick={() => onDeleteCase(t.id)}>
-                                  <HiOutlineTrash size={15} />
-                                </button>
-                              </div>
-                            </td>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    {hasActiveFilters ? (
+                      <div className="testing-filter-chips">
+                        {filters.testType !== 'all' ? (
+                          <button
+                            type="button"
+                            className="testing-filter-chip"
+                            onClick={() => setFilters((prev) => ({ ...prev, testType: 'all' }))}
+                          >
+                            Type: {filters.testType} ×
+                          </button>
+                        ) : null}
+                        {filters.priority !== 'all' ? (
+                          <button
+                            type="button"
+                            className="testing-filter-chip"
+                            onClick={() => setFilters((prev) => ({ ...prev, priority: 'all' }))}
+                          >
+                            Priority: {String(filters.priority).charAt(0).toUpperCase() + String(filters.priority).slice(1)} ×
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    <div className="doc-table-wrap">
+                      <table className="doc-table">
+                        <thead>
+                          <tr>
+                            <th>Done</th>
+                            <th>Test Case</th>
+                            <th>Test Type</th>
+                            <th>Description</th>
+                            <th>Priority</th>
+                            <th>Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {filteredTestCases.length === 0 ? (
+                            <tr>
+                              <td colSpan={6}>
+                                <div className="testing-no-results">
+                                  <div className="muted">No test cases match your selected filters.</div>
+                                  <button
+                                    type="button"
+                                    className="secondary-btn"
+                                    onClick={() => setFilters({ testType: 'all', priority: 'all' })}
+                                  >
+                                    Clear filters
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ) : null}
+                          {filteredTestCases.map((t) => (
+                            <tr key={t.id}>
+                              <td>
+                                <input type="checkbox" checked={!!t.is_checked} onChange={(e) => onToggleChecked(t, e.target.checked)} />
+                              </td>
+                              <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.test_case}</td>
+                              <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.test_type}</td>
+                              <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.description}</td>
+                              <td style={{ textDecoration: t.is_checked ? 'line-through' : 'none', opacity: t.is_checked ? 0.65 : 1 }}>{t.priority}</td>
+                              <td>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button
+                                    type="button"
+                                    className="icon-btn"
+                                    onClick={() => {
+                                      setEditingId(t.id)
+                                      setForm({
+                                        test_case: t.test_case ?? '',
+                                        test_type: t.test_type ?? 'unit',
+                                        description: t.description ?? '',
+                                        priority: t.priority ?? 'medium',
+                                      })
+                                      setCaseModalOpen(true)
+                                    }}
+                                  >
+                                    <HiOutlinePencil size={15} />
+                                  </button>
+                                  <button type="button" className="icon-btn danger" onClick={() => onDeleteRequest(t.id)}>
+                                    <HiOutlineTrash size={15} />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 ) : (
                   renderTestingContent(testingSection.content)
@@ -370,6 +509,103 @@ export default function ProjectTesting() {
         </div>
       )}
 
+      {regenModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Regenerate testing strategy">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Regenerate Testing Strategy</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <HiOutlineExclamation size={32} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                <p className="muted" style={{ margin: 0 }}>This will replace all existing test cases with a newly generated testing strategy. Any manual changes will be lost.</p>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="secondary-btn" onClick={() => setRegenModalOpen(false)} disabled={generating}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => {
+                    setRegenModalOpen(false)
+                    setIsRegenerating(true)
+                    onGenerate()
+                  }}
+                  disabled={generating}
+                >
+                  {generating ? 'Generating…' : 'Regenerate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {generating ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label={isRegenerating ? 'Regenerating testing strategy' : 'Generating testing strategy'}>
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">{isRegenerating ? 'Regenerating Testing Strategy' : 'Generating Testing Strategy'}</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <LoadingSpinner />
+                <p className="muted" style={{ margin: 0 }}>
+                  {isRegenerating
+                    ? 'Please wait while we replace your current test cases with a newly generated strategy.'
+                    : 'Please wait while we generate your testing strategy.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {deleteModalOpen ? (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Confirm delete test case">
+          <div className="modal">
+            <div className="modal-head">
+              <div>
+                <h3 className="modal-title">Delete Test Case</h3>
+              </div>
+            </div>
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <HiOutlineExclamation size={32} style={{ color: '#ef4444', flexShrink: 0 }} />
+                <p className="muted" style={{ margin: 0 }}>Are you sure you want to delete this test case? This action cannot be undone.</p>
+              </div>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    setDeleteModalOpen(false)
+                    setDeleteTargetId(null)
+                  }}
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="primary-btn"
+                  style={{ backgroundColor: '#dc2626' }}
+                  onClick={onConfirmDelete}
+                  disabled={saving}
+                >
+                  {saving ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {caseModalOpen ? (
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Test case form">
           <div className="modal">
@@ -380,25 +616,29 @@ export default function ProjectTesting() {
             </div>
             <div className="modal-body">
               <div style={{ display: 'grid', gap: 10 }}>
+                <label className="muted" htmlFor="developer_count">Test Case Title</label>
                 <input
                   className="projects-search-input"
                   placeholder="Test case title"
                   value={form.test_case}
                   onChange={(e) => setForm((prev) => ({ ...prev, test_case: e.target.value }))}
                 />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                {/* <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}> */}
+                  <label className="muted" htmlFor="developer_count">Test Type</label>
                   <input
                     className="projects-search-input"
                     placeholder="Test type (api/ui/security...)"
                     value={form.test_type}
                     onChange={(e) => setForm((prev) => ({ ...prev, test_type: e.target.value }))}
                   />
+                  <label className="muted" htmlFor="developer_count">Description</label>
                   <select className="projects-status" value={form.priority} onChange={(e) => setForm((prev) => ({ ...prev, priority: e.target.value }))}>
                     <option value="high">High</option>
                     <option value="medium">Medium</option>
                     <option value="low">Low</option>
                   </select>
-                </div>
+                {/* </div> */}
+                <label className="muted" htmlFor="developer_count">Priority</label>
                 <textarea
                   className="projects-search-input"
                   rows={3}
